@@ -1,0 +1,99 @@
+/* =========================
+   Fonts (Google)
+   ========================= */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap');
+@import "tailwindcss";
+/* =========================
+   Tailwind layers
+   ========================= */
+
+/* =========================
+   Design tokens (CSS vars)
+   ========================= */
+:root {
+  --bg: #ffffff;           /* fundo padrão */
+  --ink: #0f172a;          /* texto principal */
+  --brand: #00cc55;        /* verde neon (teu padrão) */
+  --muted: #64748b;        /* texto secundário */
+}
+
+/* =========================
+   Base
+   ========================= */
+html, body, #root {
+  height: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Manrope, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans",
+    Ubuntu, Cantarell, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* seleção de texto */
+::selection {
+  background: var(--brand);
+  color: #000;
+}
+
+/* imagens não arrastáveis por padrão (melhora UX em cards) */
+img, svg {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* =========================
+   Tailwind base extensions
+   ========================= */
+@layer base {
+  h1, h2, h3 {
+    @apply tracking-tight text-slate-900;
+  }
+  a {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-[--brand] focus-visible:ring-offset-2;
+  }
+}
+
+/* =========================
+   Components utilitários
+   ========================= */
+@layer components {
+  /* container central consistente (você pode usar junto do grid/padding das seções) */
+  .container-app {
+    @apply mx-auto max-w-7xl px-4 md:px-10;
+  }
+
+  /* botão primário (caso precise fora dos componentes React) */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-full bg-black text-white px-6 py-2
+           font-semibold hover:opacity-90 transition-colors focus-visible:ring-2
+           focus-visible:ring-[--brand];
+  }
+}
+
+/* =========================
+   Scrollbar (webkit)
+   ========================= */
+/* opcional: deixa a barra discreta em desktop */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1; /* slate-300 */
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8; /* slate-400 */
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}

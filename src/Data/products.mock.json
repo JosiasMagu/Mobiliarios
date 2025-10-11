@@ -1,0 +1,52 @@
+[
+  {
+    "id": 1,
+    "name": "Poltrona Nórdica Premium",
+    "price": 1299.9,
+    "originalPrice": 1599.9,
+    "image": "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=1200&h=800&fit=crop",
+    "rating": 4.8,
+    "reviews": 127,
+    "isNew": true,
+    "discount": 18,
+    "colors": ["#8B4513", "#2F4F4F", "#708090"],
+    "inStock": true,
+    "categorySlug": "poltronas"
+  },
+  {
+    "id": 2,
+    "name": "Mesa de Centro Minimalista",
+    "price": 799.9,
+    "originalPrice": 999.9,
+    "image": "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1200&h=800&fit=crop",
+    "rating": 4.9,
+    "reviews": 203,
+    "discount": 20,
+    "colors": ["#8B4513", "#000000", "#FFFFFF"],
+    "inStock": true,
+    "categorySlug": "mesas"
+  },
+  {
+    "id": 3,
+    "name": "Cadeira de Jantar Estofada",
+    "price": 549.9,
+    "image": "https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?w=1200&h=800&fit=crop",
+    "rating": 4.7,
+    "reviews": 89,
+    "colors": ["#8B0000", "#000080", "#228B22"],
+    "inStock": true,
+    "categorySlug": "cadeiras"
+  },
+  {
+    "id": 4,
+    "name": "Luminária de Piso Industrial",
+    "price": 899.9,
+    "image": "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?w=1200&h=800&fit=crop",
+    "rating": 4.6,
+    "reviews": 156,
+    "isNew": true,
+    "colors": ["#2F2F2F", "#B8860B", "#800080"],
+    "inStock": false,
+    "categorySlug": "iluminacao"
+  }
+]
