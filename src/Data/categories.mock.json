@@ -1,0 +1,5 @@
+[
+  { "id": "1", "name": "Escritório", "slug": "escritorio", "icon": "cadeira",  "image": "", "parentId": null, "position": 1, "isActive": true },
+  { "id": "2", "name": "Sala",       "slug": "sala",        "icon": "sofa",   "image": "", "parentId": null, "position": 2, "isActive": true },
+  { "id": "3", "name": "Quarto",     "slug": "quarto",      "icon": "cama",    "image": "", "parentId": null, "position": 3, "isActive": true }
+]

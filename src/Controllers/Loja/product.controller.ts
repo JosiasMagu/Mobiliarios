@@ -1,6 +1,7 @@
+// src/Controllers/Loja/product.controller.ts
 import { useEffect, useMemo, useState } from "react";
 import type { Product } from "@model/product.model";
-import { getProduct, listByCategory } from "@repo/product.repository";
+import { getProduct, listByCategory } from "@service/product.service";
 
 export function useProductController(idParam: string | number) {
   const [loading, setLoading] = useState(true);
@@ -29,10 +30,10 @@ export function useProductController(idParam: string | number) {
         }
         setProduct(p);
 
-        const slug = (p as any).categorySlug ?? (p as any).category?.slug;
+        const slug = (p as any).categorySlug ?? (p as any).category?.slug ?? (p as any).categoryName;
         const same = slug ? await listByCategory(slug) : [];
         if (!alive) return;
-        setRelated(same.filter(x => String(x.id) !== String(p.id)).slice(0, 8));
+        setRelated(same.filter((x) => String((x as any).id) !== String((p as any).id)).slice(0, 8));
       } catch (e: any) {
         if (!alive) return;
         setErr(e?.message ?? "Erro ao carregar");
@@ -41,7 +42,9 @@ export function useProductController(idParam: string | number) {
       }
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [idParam]);
 
   const canAdd = useMemo(() => {

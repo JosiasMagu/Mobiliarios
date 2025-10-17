@@ -34,7 +34,9 @@ export function Navbar({
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex h-18 items-center justify-between">
           <button onClick={() => smoothScrollTo("home")} className="flex items-center gap-3 py-3">
-            <div className="w-9 h-9 rounded-md bg-gradient-to-br from-blue-600 to-indigo-600 grid place-items-center text-white font-bold">M</div>
+            <div className="w-9 h-9 rounded-md bg-gradient-to-br from-blue-600 to-indigo-600 grid place-items-center text-white font-bold">
+              M
+            </div>
             <div className="text-left">
               <div className="text-lg font-extrabold leading-none tracking-tight">Mobiliário</div>
               <div className="text-[10px] text-slate-500 -mt-0.5">Casa & Escritório</div>
@@ -69,15 +71,17 @@ export function Navbar({
               />
             </div>
 
-            <button className="relative p-2 rounded-md hover:bg-slate-100" aria-label="Favoritos">
+            {/* Wishlist */}
+            <Link to="/wishlist" className="relative p-2 rounded-md hover:bg-slate-100" aria-label="Favoritos">
               <Heart className="w-5 h-5" />
               {!!wishlistCount && (
                 <span className="absolute -top-1 -right-1 text-[10px] min-w-[18px] h-[18px] px-1 rounded-full bg-pink-600 text-white grid place-items-center">
                   {wishlistCount}
                 </span>
               )}
-            </button>
+            </Link>
 
+            {/* Carrinho */}
             <Link to="/cart" className="relative p-2 rounded-md hover:bg-slate-100" aria-label="Carrinho">
               <ShoppingCart className="w-5 h-5" />
               {!!cartCount && (
@@ -87,7 +91,7 @@ export function Navbar({
               )}
             </Link>
 
-            {/* Ícone do usuário leva à página de conta */}
+            {/* Conta */}
             <Link to="/account" className="p-2 rounded-md hover:bg-slate-100" aria-label="Conta">
               <User className="w-5 h-5" />
             </Link>
@@ -129,12 +133,18 @@ export function Navbar({
               </div>
             </div>
 
-            {/* Acesso rápido às páginas no menu móvel */}
+            {/* Acesso rápido no menu móvel */}
             <div className="grid grid-cols-2 gap-2 pt-3">
-              <Link to="/cart" className="rounded-md border border-slate-200/60 px-3 py-2 text-center text-sm hover:bg-gray-50">
+              <Link
+                to="/cart"
+                className="rounded-md border border-slate-200/60 px-3 py-2 text-center text-sm hover:bg-gray-50"
+              >
                 Carrinho
               </Link>
-              <Link to="/account" className="rounded-md border border-slate-200/60 px-3 py-2 text-center text-sm hover:bg-gray-50">
+              <Link
+                to="/account"
+                className="rounded-md border border-slate-200/60 px-3 py-2 text-center text-sm hover:bg-gray-50"
+              >
                 Minha conta
               </Link>
             </div>

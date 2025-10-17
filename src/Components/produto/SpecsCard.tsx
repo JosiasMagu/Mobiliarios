@@ -30,7 +30,7 @@ export function SpecsCard({ inStock }: { inStock: boolean }) {
             <div className="flex gap-2">
               <input
                 className="form-input flex-1 rounded-md border-gray-300 text-sm focus:border-blue-600 focus:ring-blue-600"
-                placeholder="Digite seu CEP"
+                placeholder="Digite a sua Av."
               />
               <button className="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300">
                 Calcular

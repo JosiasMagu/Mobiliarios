@@ -12,21 +12,29 @@ type AuthState = {
   updateProfile: (p: Partial<User>) => Promise<void>;
 };
 
-// hidratar de localStorage
 const LS_KEY = "app_auth_v1";
-const load = (): Pick<AuthState, "user" | "token"> => {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch { return { user: null, token: null }; }
-};
+
+function loadFromStorage(): { user: User | null; token: string | null } {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return { user: null, token: null };
+    const parsed = JSON.parse(raw);
+    return { user: parsed?.user ?? null, token: parsed?.token ?? null };
+  } catch {
+    return { user: null, token: null };
+  }
+}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: load().user ?? null,
-  token: load().token ?? null,
+  user: loadFromStorage().user,
+  token: loadFromStorage().token,
 
   async signIn(email, name) {
     const profile = await getOrCreateProfile(email.trim(), name);
     const token = "mock-" + Date.now();
-    set({ user: { id: profile.id, name: profile.name, email: profile.email }, token });
-    localStorage.setItem(LS_KEY, JSON.stringify({ user: get().user, token }));
+    const user: User = { id: profile.id, name: profile.name, email: profile.email };
+    set({ user, token });
+    localStorage.setItem(LS_KEY, JSON.stringify({ user, token }));
   },
 
   signOut() {
@@ -37,7 +45,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   async updateProfile(p) {
     const cur = get().user;
     if (!cur) return;
-    const next = { ...cur, ...p };
+    const next: User = { ...cur, ...p };
     await saveProfile(next);
     set({ user: next });
     localStorage.setItem(LS_KEY, JSON.stringify({ user: next, token: get().token }));

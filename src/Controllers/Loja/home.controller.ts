@@ -1,7 +1,8 @@
+// src/Controllers/Loja/home.controller.ts
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Product } from "@model/product.model";
 import type { Testimonial } from "@model/testimonial.model";
-import { listProducts } from "@repo/product.repository";
+import { listAllProducts } from "@service/product.service"; // <- agora lê o service (Admin ↔ Loja)
 import { listTestimonials } from "@repo/testimonial.repository";
 import { useCartStore } from "@state/cart.store";
 import { useUIStore } from "@state/ui.store";
@@ -35,14 +36,12 @@ export function useHomeController() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [p, t] = await Promise.all([listProducts(), listTestimonials()]);
+      const [p, t] = await Promise.all([listAllProducts(), listTestimonials()]);
       if (!alive) return;
       setProducts(p);
       setTestimonials(t);
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
   // refs para seções
@@ -50,9 +49,7 @@ export function useHomeController() {
   const refCb = useMemo(
     () =>
       sections.reduce<Record<string, (el: HTMLElement | null) => void>>((acc, s) => {
-        acc[s.id] = (el) => {
-          mapRefs.current[s.id] = el;
-        };
+        acc[s.id] = (el) => { mapRefs.current[s.id] = el; };
         return acc;
       }, {}),
     []
@@ -68,15 +65,14 @@ export function useHomeController() {
     setMenuOpen(false);
   };
 
-  // link ativo por interseção
+  // link ativo
   useEffect(() => {
     const io = new IntersectionObserver(
       (entries) => {
         const v = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (v?.target && (v.target as HTMLElement).id)
-          setActive((v.target as HTMLElement).id);
+        if (v?.target && (v.target as HTMLElement).id) setActive((v.target as HTMLElement).id);
       },
       { rootMargin: `-${HEADER_H + 1}px 0px -60% 0px`, threshold: [0.3, 0.6] }
     );
@@ -102,42 +98,19 @@ export function useHomeController() {
 
   // ações
   const addCart = (id: number) => {
-    const p = products.find((x) => x.id === id);
-    if (!p || !p.inStock) return;
-    addItem({ productId: p.id, name: p.name, price: p.price, image: p.image }, 1);
+    const p = products.find((x) => Number(x.id) === Number(id));
+    if (!p || !(p as any).inStock) return;
+    const image = (p as any).image ?? (p as any).images?.[0];
+    addItem({ productId: Number(p.id), name: p.name, price: Number(p.price), image }, 1);
   };
 
   return {
-    // dados
-    products,
-    testimonials,
-
-    // contadores derivados
-    cartCount: totalQty,
-    wishlistCount,
-
-    // estado local
-    searchQuery,
-    currentTestimonial,
-    email,
-    active,
-    menuOpen,
-
-    // setters
-    setSearchQuery,
-    setCurrentTestimonial,
-    setEmail,
-    setMenuOpen,
-
-    // refs e navegação
-    refCb,
-    smoothScrollTo,
-
-    // derivados e ações
-    list,
-    addCart,
-    addWish,
-
+    products, testimonials,
+    cartCount: totalQty, wishlistCount,
+    searchQuery, currentTestimonial, email, active, menuOpen,
+    setSearchQuery, setCurrentTestimonial, setEmail, setMenuOpen,
+    refCb, smoothScrollTo,
+    list, addCart, addWish,
     sections,
   };
 }

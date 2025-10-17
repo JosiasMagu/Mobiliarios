@@ -4,12 +4,18 @@ import CategoryPage from "@view/Loja/Category/CategoryPage";
 import ProductPage from "@view/Loja/Product/ProductPage";
 import CartPage from "@view/Loja/Cart/CartPage";
 import CheckoutPage from "@view/Loja/Checkout/CheckoutPage";
+import ConfirmationPage from "@view/Loja/Checkout/ConfirmationPage";
 import AccountPage from "@view/Loja/Account/AccountPage";
-
+import OrderDetailPage from "@view/Loja/Orders/OrderDetailPage";
+import WishlistPage from "@view/Loja/Wishlist/WishlistPage";
+import LoginPage from "@view/Loja/Auth/LoginPage";
 import AboutPage from "@view/Loja/Institucional/AboutPage";
 import ContactPage from "@view/Loja/Institucional/ContactPage";
 import FAQPage from "@view/Loja/Institucional/FAQPage";
-import PoliciesPage from "@view/Loja/Institucional/PoliciesPage";
+import NotFound from "@view/NotFound";
+import RequireAuth from "@routes/requireAuth.routes";
+import { AppErrorBoundary } from "@/AppErrorBoundary";
+import { adminRoutes } from "@routes/admin.routes";
 
 const router = createBrowserRouter([
   { path: "/", element: <Home /> },
@@ -17,17 +23,33 @@ const router = createBrowserRouter([
   { path: "/p/:id", element: <ProductPage /> },
   { path: "/cart", element: <CartPage /> },
   { path: "/checkout", element: <CheckoutPage /> },
-  { path: "/conta", element: <AccountPage /> },
+  { path: "/confirm/:id", element: <ConfirmationPage /> }, // <- confirme que é exatamente este path
+  { path: "/wishlist", element: <WishlistPage /> },
+  { path: "/login", element: <LoginPage /> },
 
-  // Institucionais
+  {
+    path: "/account",
+    element: <RequireAuth />,
+    children: [{ index: true, element: <AccountPage /> }],
+  },
+  {
+    path: "/orders/:id",
+    element: <RequireAuth />,
+    children: [{ index: true, element: <OrderDetailPage /> }],
+  },
+
   { path: "/sobre", element: <AboutPage /> },
   { path: "/contato", element: <ContactPage /> },
   { path: "/faq", element: <FAQPage /> },
-  { path: "/politicas", element: <PoliciesPage /> },
 
-  { path: "*", element: <div style={{ padding: 24 }}>Página não encontrada</div> },
+  ...adminRoutes,
+  { path: "*", element: <NotFound /> },
 ]);
 
 export default function AppRouter() {
-  return <RouterProvider router={router} />;
+  return (
+    <AppErrorBoundary>
+      <RouterProvider router={router} />
+    </AppErrorBoundary>
+  );
 }

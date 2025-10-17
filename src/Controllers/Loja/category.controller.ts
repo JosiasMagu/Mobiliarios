@@ -1,6 +1,7 @@
+// src/Controllers/Loja/category.controller.ts
 import { useEffect, useMemo, useState } from "react";
 import type { Product } from "@model/product.model";
-import { listByCategory } from "@repo/product.repository";
+import { listByCategory } from "@service/product.service";
 
 export type SortKey = "bestsellers" | "newest" | "priceAsc" | "priceDesc";
 
@@ -38,21 +39,23 @@ export function useCategoryController(slug: string) {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [slug]);
 
   const filtered = useMemo(() => {
     const name = q.trim().toLowerCase();
     const minN = Number(min);
     const maxN = Number(max);
-    return items.filter(p => {
-      const inStockFlag = Boolean((p as any).inStock);
-      const colors: string[] = ((p as any).colors ?? []) as string[];
+    return items.filter((p: any) => {
+      const inStockFlag = Boolean(p.inStock);
+      const colors: string[] = (p.colors ?? []) as string[];
       if (name && !p.name.toLowerCase().includes(name)) return false;
       if (inStock && !inStockFlag) return false;
       if (!Number.isNaN(minN) && min !== "" && Number(p.price) < minN) return false;
       if (!Number.isNaN(maxN) && max !== "" && Number(p.price) > maxN) return false;
-      if (color && !colors.some(c => c.toLowerCase() === color.toLowerCase())) return false;
+      if (color && !colors.some((c) => c.toLowerCase() === color.toLowerCase())) return false;
       if (material) { /* reservado */ }
       return true;
     });
@@ -61,13 +64,13 @@ export function useCategoryController(slug: string) {
   const sorted = useMemo(() => {
     const arr = [...filtered];
     switch (sort) {
-      case "priceAsc":  arr.sort((a, b) => Number(a.price) - Number(b.price)); break;
-      case "priceDesc": arr.sort((a, b) => Number(b.price) - Number(a.price)); break;
-      case "newest":    arr.sort((a, b) => Number((b as any).isNew ?? 0) - Number((a as any).isNew ?? 0)); break;
+      case "priceAsc":  arr.sort((a: any, b: any) => Number(a.price) - Number(b.price)); break;
+      case "priceDesc": arr.sort((a: any, b: any) => Number(b.price) - Number(a.price)); break;
+      case "newest":    arr.sort((a: any, b: any) => Number(b.isNew ?? 0) - Number(a.isNew ?? 0)); break;
       case "bestsellers":
       default: {
         const r = (x: any) => Number(x?.reviews ?? 0);
-        arr.sort((a, b) => r(b) - r(a));
+        arr.sort((a: any, b: any) => r(b) - r(a));
         break;
       }
     }
