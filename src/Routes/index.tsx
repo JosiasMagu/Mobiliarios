@@ -23,7 +23,7 @@ const router = createBrowserRouter([
   { path: "/p/:id", element: <ProductPage /> },
   { path: "/cart", element: <CartPage /> },
   { path: "/checkout", element: <CheckoutPage /> },
-  { path: "/confirm/:id", element: <ConfirmationPage /> }, // <- confirme que é exatamente este path
+  { path: "/confirm/:id", element: <ConfirmationPage /> },
   { path: "/wishlist", element: <WishlistPage /> },
   { path: "/login", element: <LoginPage /> },
 

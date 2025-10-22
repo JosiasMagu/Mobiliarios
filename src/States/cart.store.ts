@@ -1,4 +1,4 @@
-// src/state/cart.store.ts  (substitua o arquivo)
+// src/state/cart.store.ts
 import { create } from "zustand";
 
 const STORAGE_KEY = "cart:v1";

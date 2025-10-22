@@ -30,7 +30,6 @@ export default function ConfirmationPage() {
     }
   };
 
-  // tenta obter dados do checkout; se não houver, carrega do repositório
   const ord = (() => {
     const fromState =
       st.items && st.total != null

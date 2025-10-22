@@ -1,41 +1,82 @@
-// Autenticação simples do Admin (persistida)
+// src/States/admin.auth.store.ts
 import { create } from "zustand";
 
-type AdminState = {
+type Role = "ADMIN" | "GERENTE" | "CLIENTE";
+type AdminUser = { id: number; name: string; email: string; role: Role };
+
+type AdminAuthState = {
   token: string | null;
-  name: string | null;
-  signIn: (email: string, password: string) => Promise<boolean>;
-  signOut: () => void;
+  user: AdminUser | null;
+  loading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => void;
+  authHeader: () => Record<string, string>;
+  isAdmin: () => boolean;
 };
+
+const BASE =
+  (import.meta as any).env?.VITE_API_URL?.replace(/\/+$/, "") ||
+  "http://localhost:8080";
 
 const LS_KEY = "admin_auth_v1";
 
-const load = (): Pick<AdminState, "token" | "name"> => {
+function load() {
   try {
     return JSON.parse(localStorage.getItem(LS_KEY) || "{}");
   } catch {
-    return { token: null, name: null };
+    return { token: null, user: null };
   }
-};
+}
 
-export const useAdminAuth = create<AdminState>((set, get) => ({
+export const useAdminAuth = create<AdminAuthState>((set, get) => ({
   token: load().token ?? null,
-  name: load().name ?? null,
+  user: load().user ?? null,
+  loading: false,
+  error: null,
 
-  async signIn(email, password) {
-    // mock: qualquer email + senha "admin123" entra
-    const ok = password === "admin123";
-    if (ok) {
-      const token = "adm-" + Date.now();
-      const name = email.split("@")[0] || "Administrador";
-      set({ token, name });
-      localStorage.setItem(LS_KEY, JSON.stringify({ token, name }));
+  async login(email, password) {
+    set({ loading: true, error: null });
+    try {
+      const res = await fetch(`${BASE}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const j = await res.json();
+          msg = j?.error || j?.message || msg;
+        } catch {}
+        throw new Error(msg);
+      }
+      const data = (await res.json()) as { token: string; user: AdminUser };
+      localStorage.setItem(
+        LS_KEY,
+        JSON.stringify({ token: data.token, user: data.user })
+      );
+      set({ token: data.token, user: data.user, loading: false });
+      return true;
+    } catch (e: any) {
+      set({ error: e?.message || "Erro ao autenticar", loading: false });
+      return false;
     }
-    return ok;
   },
 
-  signOut() {
-    set({ token: null, name: null });
+  logout() {
     localStorage.removeItem(LS_KEY);
+    set({ token: null, user: null });
+  },
+
+  authHeader() {
+    const t = get().token;
+    const headers: Record<string, string> = {};
+    if (t) headers.Authorization = `Bearer ${t}`;
+    return headers;
+  },
+
+  isAdmin() {
+    return !!get().token && get().user?.role === "ADMIN";
   },
 }));

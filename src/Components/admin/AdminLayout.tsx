@@ -1,16 +1,14 @@
 import type { ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useAdminAuth } from "@state/admin.auth.store";
-import { Menu, LogOut, LayoutGrid, Package, Users, ShoppingBag } from "lucide-react";
+import { LogOut, LayoutGrid, Package, Users, ShoppingBag } from "lucide-react";
 import AdminHeader from "./AdminHeader";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const auth = useAdminAuth();
-  const nav = useNavigate();
 
   if (!auth.token) {
-    nav("/admin/login");
-    return null;
+    return <Navigate to="/admin/login" replace />;
   }
 
   return (
@@ -25,15 +23,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <Link to="/admin" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-50">
             <LayoutGrid className="w-4 h-4" /> Dashboard
           </Link>
-          <button className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-50">
+          <Link to="/admin/produtos" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-50">
             <Package className="w-4 h-4" /> Produtos
-          </button>
-          <button className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-50">
+          </Link>
+          <Link to="/admin/pedidos" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-50">
             <ShoppingBag className="w-4 h-4" /> Pedidos
-          </button>
-          <button className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-50">
+          </Link>
+          <Link to="/admin/clientes" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-50">
             <Users className="w-4 h-4" /> Clientes
-          </button>
+          </Link>
         </nav>
         <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-slate-200">
           <div className="text-xs text-slate-500 mb-2 px-1">Conectado como</div>

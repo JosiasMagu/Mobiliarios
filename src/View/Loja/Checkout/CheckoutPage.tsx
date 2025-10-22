@@ -1,10 +1,10 @@
-// src/View/Loja/Checkout/CheckoutPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Navbar } from "@/Components/home/Navbar";
-import { listPaymentMethods, MZ_PHONE_REGEX } from "@/Repository/payment.repository";
-import { listShippingRules, estimateZoneCost } from "@/Repository/shipping.repository";
+import { listPaymentMethods, MZ_PHONE_REGEX, type PaymentMethod } from "@/Repository/payment.repository";
+import { listShippingRules, estimateZoneCost, type Carrier } from "@/Repository/shipping.repository";
 import { useCartStore } from "@state/cart.store";
+import { useAuthStore } from "@state/auth.store";
 import { createOrder, type PaymentKind, type ShippingMethod } from "@repo/order.repository";
 
 type Address = {
@@ -22,12 +22,15 @@ export default function CheckoutPage() {
   // Carrinho
   const cart = useCartStore();
   const items = cart.items.map(i => ({
-    id: String(i.productId),
+    productId: i.productId,
     name: i.name,
     qty: i.qty,
     price: i.price,
     image: i.image,
   }));
+
+  // Usuário logado
+  const auth = useAuthStore();
 
   // Endereço
   const [addr, setAddr] = useState<Address>({
@@ -41,25 +44,48 @@ export default function CheckoutPage() {
   const updateAddr = <K extends keyof Address>(k: K, v: Address[K]) =>
     setAddr(p => ({ ...p, [k]: v }));
 
-  // Pagamento e envio
-  const payments = listPaymentMethods(true);
-  const shippingRules = listShippingRules(true);
-
-  const [paymentId, setPaymentId] = useState<string>(payments[0]?.id ?? "");
-  const [shippingId, setShippingId] = useState<string>(shippingRules[0]?.id ?? "");
+  // Pagamento e envio (carregamento assíncrono)
+  const [payments, setPayments] = useState<PaymentMethod[]>([]);
+  const [shippingRules, setShippingRules] = useState<Carrier[]>([]);
+  const [paymentId, setPaymentId] = useState<string>("");
+  const [shippingId, setShippingId] = useState<string>("");
   const [zoneCost, setZoneCost] = useState<number | undefined>();
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const payment = useMemo(() => payments.find(p => p.id === paymentId), [payments, paymentId]);
-  const shipping: any = useMemo(
-    () => shippingRules.find(s => "service" in s && s.id === shippingId),
+  useEffect(() => {
+    (async () => {
+      try {
+        const [pms, ships] = await Promise.all([listPaymentMethods(), listShippingRules()]);
+        setPayments(pms);
+        setShippingRules(ships);
+        if (pms.length) setPaymentId(String(pms[0].id));
+        if (ships.length) setShippingId(String(ships[0].id));
+      } catch (e) {
+        // silencia; erros aparecerão ao validar/usar
+      }
+    })();
+  }, []);
+
+  const payment = useMemo(
+    () => payments.find(p => String(p.id) === paymentId),
+    [payments, paymentId]
+  );
+
+  const shipping = useMemo(
+    () => shippingRules.find(s => String(s.id) === shippingId),
     [shippingRules, shippingId]
   );
 
   // Totais
   const subtotal = useMemo(() => items.reduce((s, i) => s + i.qty * i.price, 0), [items]);
-  const shippingCost =
-    !shipping ? 0 : shipping.service === "pickup" ? 0 : shipping.service === "zone" ? zoneCost ?? 0 : shipping.baseCost ?? 0;
+
+  const shippingCost = useMemo(() => {
+    if (!shipping) return 0;
+    if (shipping.service === "pickup") return 0;
+    if (shipping.service === "zone") return zoneCost ?? 0;
+    return Number(shipping.baseCost ?? 0);
+  }, [shipping, zoneCost]);
+
   const total = subtotal + shippingCost;
 
   // Navbar
@@ -81,7 +107,7 @@ export default function CheckoutPage() {
     if (!addr.nome) e.nome = "Nome obrigatório.";
     if (!addr.telefone) e.telefone = "Telefone obrigatório.";
     else if (!MZ_PHONE_REGEX.test(addr.telefone)) e.telefone = "Telefone inválido.";
-    if (shipping?.service !== "pickup") {
+    if ((shipping?.service ?? "standard") !== "pickup") {
       if (!addr.provincia) e.provincia = "Província obrigatória.";
       if (!addr.cidade) e.cidade = "Cidade obrigatória.";
       if (!addr.bairro) e.bairro = "Bairro obrigatório.";
@@ -91,44 +117,50 @@ export default function CheckoutPage() {
     return Object.keys(e).length === 0;
   }
 
-  // Ações
-  function onChangeShipping(id: string) {
-    setShippingId(id);
-    const sel: any = shippingRules.find(r => "service" in r && r.id === id);
-    if (sel?.service === "zone" && addr.provincia) {
-      setZoneCost(estimateZoneCost(addr.provincia, addr.cidade, addr.bairro));
-    } else setZoneCost(undefined);
-  }
-  function onAddressBlur() {
-    const sel: any = shippingRules.find(r => "service" in r && r.id === shippingId);
-    if (sel?.service === "zone" && addr.provincia) {
-      setZoneCost(estimateZoneCost(addr.provincia, addr.cidade, addr.bairro));
+  // Cálculo de custo por zona quando troca envio ou endereço
+  function recalcZoneCost(sel?: Carrier) {
+    const rule = sel ?? shipping;
+    if (rule?.service === "zone" && addr.provincia) {
+      // peso estimado simples para o cálculo base
+      setZoneCost(estimateZoneCost(rule, 5));
+    } else {
+      setZoneCost(undefined);
     }
   }
 
-  function placeOrder() {
+  function onChangeShipping(id: string) {
+    setShippingId(id);
+    const sel = shippingRules.find(r => String(r.id) === id);
+    recalcZoneCost(sel);
+  }
+  function onAddressBlur() {
+    recalcZoneCost();
+  }
+
+  async function placeOrder() {
     if (!validate()) return;
 
-    // Montagem do pedido persistido
-    const order = createOrder({
-      items: cart.items.map(i => ({ productId: i.productId, name: i.name, price: i.price, qty: i.qty, image: i.image })),
-      subtotal,
-      shippingMethod: (shipping?.service ?? "standard") as ShippingMethod,
-      shippingCost,
-      total,
-      customer: { guest: true, name: addr.nome },
-      address: {
-        provincia: addr.provincia,
-        cidade: addr.cidade,
-        bairro: addr.bairro,
-        referencia: addr.referencia,
-      },
-      payment: { method: (payment?.type ?? "transfer") as PaymentKind },
-    });
+    const customer = auth.user
+      ? { guest: false as const, id: auth.user.id, email: (auth.user as any).email ?? undefined, name: auth.user.name }
+      : { guest: true as const, name: addr.nome };
 
-    // limpar carrinho e ir para confirmação consistente com o router: /confirm/:id
-    cart.clear?.();
-    navigate(`/confirm/${order.id}`, { replace: true });
+    try {
+      const order = await createOrder({
+        items,
+        address: {
+          provincia: addr.provincia,
+          cidade: addr.cidade,
+          bairro: addr.bairro,
+          referencia: addr.referencia,
+        },
+        shippingMethod: (shipping?.service ?? "standard") as ShippingMethod,
+        paymentMethod: (payment?.type ?? "emola") as PaymentKind,
+      });
+      cart.clear?.();
+      navigate(`/confirm/${order.id}`, { replace: true });
+    } catch (e: any) {
+      setErrors(prev => ({ ...prev, submit: e?.message || "Falha ao criar pedido" }));
+    }
   }
 
   const inputClass =
@@ -166,6 +198,7 @@ export default function CheckoutPage() {
       <div className="min-h-[70vh] bg-slate-50 py-8 px-3 md:px-8 font-[Inter]">
         <div className="mx-auto max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
+            {/* 1. Dados */}
             <section className="bg-white shadow-sm rounded-xl p-6 border border-slate-200">
               <h2 className="text-lg font-semibold mb-4 text-slate-700">1. Dados do cliente</h2>
               <div className="grid md:grid-cols-2 gap-4">
@@ -188,6 +221,7 @@ export default function CheckoutPage() {
               {errors.cart && <p className="text-red-600 text-sm mt-2">{errors.cart}</p>}
             </section>
 
+            {/* 2. Endereço */}
             <section className="bg-white shadow-sm rounded-xl p-6 border border-slate-200">
               <h2 className="text-lg font-semibold mb-4 text-slate-700">2. Endereço de entrega</h2>
               <div className="grid md:grid-cols-2 gap-4" onBlur={onAddressBlur}>
@@ -213,17 +247,18 @@ export default function CheckoutPage() {
               </div>
             </section>
 
+            {/* 3. Envio */}
             <section className="bg-white shadow-sm rounded-xl p-6 border border-slate-200">
               <h2 className="text-lg font-semibold mb-4 text-slate-700">3. Método de envio</h2>
               <div className="flex flex-wrap gap-3">
-                {shippingRules.map((s: any) => (
-                  <label key={s.id} className={chip(shippingId === s.id)}>
+                {shippingRules.map((s) => (
+                  <label key={s.id} className={chip(String(shippingId) === String(s.id))}>
                     <input
                       type="radio"
                       name="shipping"
                       className="hidden"
-                      checked={shippingId === s.id}
-                      onChange={() => onChangeShipping(s.id)}
+                      checked={String(shippingId) === String(s.id)}
+                      onChange={() => onChangeShipping(String(s.id))}
                     />
                     <span className="text-sm font-medium">
                       {s.service === "pickup" && "Retirar no local"}
@@ -243,17 +278,18 @@ export default function CheckoutPage() {
               )}
             </section>
 
+            {/* 4. Pagamento */}
             <section className="bg-white shadow-sm rounded-xl p-6 border border-slate-200">
               <h2 className="text-lg font-semibold mb-4 text-slate-700">4. Pagamento</h2>
               <div className="grid md:grid-cols-3 gap-3">
                 {payments.map(p => (
-                  <label key={p.id} className={chip(paymentId === p.id)}>
+                  <label key={p.id} className={chip(paymentId === String(p.id))}>
                     <input
                       type="radio"
                       name="payment"
                       className="hidden"
-                      checked={paymentId === p.id}
-                      onChange={() => setPaymentId(p.id)}
+                      checked={paymentId === String(p.id)}
+                      onChange={() => setPaymentId(String(p.id))}
                     />
                     <span className="text-sm font-medium">
                       {p.type === "mpesa" && "M-Pesa"}
@@ -280,14 +316,16 @@ export default function CheckoutPage() {
                 </div>
               )}
               {errors.payment && <p className="text-red-600 text-sm mt-2">{errors.payment}</p>}
+              {errors.submit && <p className="text-red-600 text-sm mt-2">{errors.submit}</p>}
             </section>
           </div>
 
+          {/* Resumo */}
           <aside className="h-fit bg-white shadow-sm rounded-xl p-6 border border-slate-200">
             <h2 className="text-lg font-semibold mb-4 text-slate-700">Resumo do pedido</h2>
             <ul className="divide-y divide-slate-100">
               {items.map(it => (
-                <li key={it.id} className="flex items-center justify-between py-3">
+                <li key={`${it.productId}`} className="flex items-center justify-between py-3">
                   <div className="flex items-center gap-3">
                     <img
                       src={it.image || "/img/placeholder-product.jpg"}

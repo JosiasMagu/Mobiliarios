@@ -21,76 +21,71 @@ const MEM_KEY = "mobiliario.admin.products";
 function loadMem(): Product[] {
   try { return JSON.parse(localStorage.getItem(MEM_KEY) || "[]") as Product[]; } catch { return []; }
 }
-function saveMem(list: Product[]) {
-  localStorage.setItem(MEM_KEY, JSON.stringify(list));
-}
+function saveMem(list: Product[]) { localStorage.setItem(MEM_KEY, JSON.stringify(list)); }
+
 async function seedIfEmpty() {
   const cur = loadMem();
   if (cur.length === 0) {
     const mock = await repoListAll();
     const now = new Date().toISOString();
-    const seeded = mock.map<Product>((p) => ({
+    const seeded = mock.map<Product>((p: any) => ({
       ...p,
-      stockQty: (p as any).stockQty ?? ((p as any).inStock ? 10 : 0),
-      status: (p as any).status ?? ((p as any).inStock ? "published" : "draft"),
-      categoryName: (p as any).categorySlug,
+      stockQty: p.stockQty ?? (p.inStock ? 10 : 0),
+      status: p.status ?? (p.inStock ? "published" : "draft"),
+      categoryName: p.categorySlug ?? p.category?.slug,
       createdAt: now,
       updatedAt: now,
     }));
     saveMem(seeded);
   }
 }
-function genIdNumber(): number {
-  return Date.now() + Math.floor(Math.random() * 1000);
-}
+function genIdNumber(): number { return Date.now() + Math.floor(Math.random() * 1000); }
 void seedIfEmpty();
 
 // -------- Helpers HTTP --------
-async function http<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
-  const res = await fetch(input, init);
+async function http<T>(path: string, init?: RequestInit): Promise<T> {
+  if (!API) throw new Error("API base URL ausente");
+  const res = await fetch(`${API.replace(/\/+$/,"")}${path}`, init);
   if (!res.ok) throw new Error((await res.text()) || "Erro de rede");
   return res.json() as Promise<T>;
 }
 
 // -------- Loja (read-only) --------
 export async function getProduct(id: string | number): Promise<Product | null> {
-  if (API) return http<Product | null>(`${API}/products/${id}`);
+  if (API) return http<Product | null>(`/api/products/${id}`);
   const mem = loadMem();
   if (mem.length) {
     const pid = String(id);
-    return mem.find((p) => String(p.id) === pid) ?? null;
+    return mem.find((p) => String((p as any).id) === pid) ?? null;
   }
   return repoGetProduct(id);
 }
 
 export async function listByCategory(slug: string): Promise<Product[]> {
-  if (API) return http<Product[]>(`${API}/products?category=${encodeURIComponent(slug)}`);
+  if (API) return http<Product[]>(`/api/products?cat=${encodeURIComponent(slug)}`);
   const mem = loadMem();
   if (mem.length) {
     const s = slug.toLowerCase();
     return mem.filter(
-      (p: any) =>
-        String(p.categorySlug ?? p.categoryName ?? "").toLowerCase() === s
+      (p: any) => String(p.categorySlug ?? p.categoryName ?? "").toLowerCase() === s
     );
   }
   return repoListByCategory(slug);
 }
 
 export async function listAllProducts(): Promise<Product[]> {
-  if (API) return http<Product[]>(`${API}/products`);
+  if (API) return http<Product[]>(`/api/products`);
   const mem = loadMem();
   if (mem.length) return mem;
   return repoListAll();
 }
 
 export async function searchProducts(q: string): Promise<Product[]> {
-  if (API) return http<Product[]>(`${API}/products/search?q=${encodeURIComponent(q)}`);
+  const s = q.trim();
+  if (!s) return [];
+  if (API) return http<Product[]>(`/api/products?q=${encodeURIComponent(s)}`);
   const mem = loadMem();
-  if (mem.length) {
-    const s = q.trim().toLowerCase();
-    if (!s) return [];
-    return mem.filter((p) => p.name.toLowerCase().includes(s));
-  }
+  if (mem.length) return mem.filter(p => p.name.toLowerCase().includes(s.toLowerCase()));
   return repoSearch(q);
 }
 
@@ -105,7 +100,8 @@ export const productService = {
       if (q.categoryId) params.set("categoryId", q.categoryId);
       if (q.status && q.status !== "all") params.set("status", q.status);
       if (q.sort) params.set("sort", q.sort);
-      return http<PagedResult<Product>>(`${API}/admin/products?${params.toString()}`);
+      // ajuste quando tiver endpoints admin reais
+      return http<PagedResult<Product>>(`/api/admin/products?${params.toString()}`);
     }
 
     const page = q.page ?? 1;
@@ -147,7 +143,7 @@ export const productService = {
 
   async create(payload: ProductCreate): Promise<Product> {
     if (API) {
-      return http<Product>(`${API}/admin/products`, {
+      return http<Product>(`/api/admin/products`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -156,13 +152,13 @@ export const productService = {
     const list = loadMem();
     const now = new Date().toISOString();
     const p: Product = {
-      ...payload,
+      ...(payload as any),
       id: genIdNumber(),
       createdAt: now,
       updatedAt: now,
       stockQty: (payload as any).stockQty ?? ((payload as any).inStock ? 10 : 0),
       status: (payload as any).status ?? ((payload as any).inStock ? "published" : "draft"),
-    } as any;
+    };
     list.unshift(p);
     saveMem(list);
     return p;
@@ -170,14 +166,14 @@ export const productService = {
 
   async update(id: number, patch: ProductUpdate): Promise<Product> {
     if (API) {
-      return http<Product>(`${API}/admin/products/${id}`, {
+      return http<Product>(`/api/admin/products/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       });
     }
     const list = loadMem();
-    const idx = list.findIndex((p) => (p as any).id === id);
+    const idx = list.findIndex((p: any) => p.id === id);
     if (idx < 0) throw new Error("Produto não encontrado");
     const now = new Date().toISOString();
     list[idx] = { ...(list[idx] as any), ...patch, updatedAt: now };
@@ -187,22 +183,28 @@ export const productService = {
 
   async remove(id: number): Promise<void> {
     if (API) {
-      await http<void>(`${API}/admin/products/${id}`, { method: "DELETE" });
+      await http<void>(`/api/admin/products/${id}`, { method: "DELETE" });
       return;
     }
-    const list = loadMem().filter((p) => (p as any).id !== id);
+    const list = loadMem().filter((p: any) => p.id !== id);
     saveMem(list);
   },
 
   async duplicate(id: number): Promise<Product> {
     if (API) {
-      return http<Product>(`${API}/admin/products/${id}/duplicate`, { method: "POST" });
+      return http<Product>(`/api/admin/products/${id}/duplicate`, { method: "POST" });
     }
     const list = loadMem();
-    const src = list.find((p) => (p as any).id === id);
+    const src = list.find((p: any) => p.id === id);
     if (!src) throw new Error("Produto não encontrado");
     const now = new Date().toISOString();
-    const copy: Product = { ...(src as any), id: genIdNumber(), name: `${(src as any).name} (cópia)`, createdAt: now, updatedAt: now };
+    const copy: Product = {
+      ...(src as any),
+      id: genIdNumber(),
+      name: `${(src as any).name} (cópia)`,
+      createdAt: now,
+      updatedAt: now,
+    };
     list.unshift(copy);
     saveMem(list);
     return copy;
@@ -212,7 +214,7 @@ export const productService = {
     if (API) {
       const fd = new FormData();
       files.forEach((f) => fd.append("files", f));
-      const res = await fetch(`${API}/admin/uploads`, { method: "POST", body: fd });
+      const res = await fetch(`${API.replace(/\/+$/,"")}/api/admin/uploads`, { method: "POST", body: fd });
       if (!res.ok) throw new Error("Falha ao fazer upload");
       return (await res.json()) as string[];
     }

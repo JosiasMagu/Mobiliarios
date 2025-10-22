@@ -17,6 +17,19 @@ export default function OrderDetailPage() {
     else if (typeof anyStore.toggleMenu === "function" && isOpen !== !!v) anyStore.toggleMenu();
   };
 
+  const addr = o?.address;
+  const addrLine = addr
+    ? addr.provincia || addr.cidade || addr.bairro
+      ? `${addr.provincia ?? ""}${addr.cidade ? `, ${addr.cidade}` : ""}${addr.bairro ? `, ${addr.bairro}` : ""}${addr.referencia ? ` · ref.: ${addr.referencia}` : ""}`
+      : `${addr.street ?? ""}${addr.city ? `, ${addr.city}` : ""}${addr.state ? ` - ${addr.state}` : ""}${addr.zip ? ` · ${addr.zip}` : ""}`
+    : "";
+
+  const shipLabel =
+    o?.shippingMethod === "express" ? "Expresso" :
+    o?.shippingMethod === "pickup" ? "Retirar no local" :
+    o?.shippingMethod === "flat" ? "Taxa fixa" :
+    o?.shippingMethod === "zone" ? "Por zona" : "Padrão";
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar
@@ -43,8 +56,8 @@ export default function OrderDetailPage() {
         ) : (
           <div className="rounded-xl border border-slate-200/40 bg-white shadow-sm">
             <div className="p-6 border-b border-slate-200/40">
-              <h1 className="text-2xl font-bold">Pedido #{o.id}</h1>
-              <div className="text-sm text-slate-600 mt-1">Criado em {new Date(o.createdAt).toLocaleString()}</div>
+              <h1 className="text-2xl font-bold">Pedido {o.number ?? `#${o.id}`}</h1>
+              <div className="text-sm text-slate-600 mt-1">Criado em {new Date(o.createdAt).toLocaleString("pt-MZ")}</div>
             </div>
 
             <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -67,8 +80,8 @@ export default function OrderDetailPage() {
               <section className="space-y-3">
                 <h2 className="text-lg font-semibold">Entrega e pagamento</h2>
                 <div className="rounded-lg border border-slate-200/40 p-3">
-                  <div className="text-sm"><span className="text-slate-600">Endereço:</span> {o.address.street}, {o.address.city} - {o.address.state} · {o.address.zip}</div>
-                  <div className="text-sm mt-1"><span className="text-slate-600">Envio:</span> {o.shippingMethod === "express" ? "Expresso" : "Padrão"}</div>
+                  <div className="text-sm"><span className="text-slate-600">Endereço:</span> {addrLine || "—"}</div>
+                  <div className="text-sm mt-1"><span className="text-slate-600">Envio:</span> {shipLabel}</div>
                   <div className="text-sm mt-1"><span className="text-slate-600">Pagamento:</span> {o.payment.method.toUpperCase()}</div>
                 </div>
 

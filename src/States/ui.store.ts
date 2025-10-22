@@ -3,7 +3,6 @@ import { create } from "zustand";
 type UIState = {
   menuOpen: boolean;
   setMenuOpen: (v: boolean) => void;
-  // opcional: toggle para compatibilidade
   toggleMenu?: () => void;
 };
 

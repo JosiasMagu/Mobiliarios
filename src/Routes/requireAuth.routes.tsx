@@ -1,10 +1,12 @@
-// src/Routes/requireAuth.routes.ts
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuthStore } from "@state/auth.store";
 
 export default function RequireAuth() {
-  const user = useAuthStore().user;
+  const { user, token } = useAuthStore();
   const loc = useLocation();
-  if (!user) return <Navigate to={`/login?back=${encodeURIComponent(loc.pathname)}`} replace />;
+  if (!user || !token) {
+    const back = encodeURIComponent(loc.pathname + loc.search + loc.hash);
+    return <Navigate to={`/login?back=${back}`} replace />;
+  }
   return <Outlet />;
 }

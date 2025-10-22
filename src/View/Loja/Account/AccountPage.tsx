@@ -1,6 +1,5 @@
-// src/View/Loja/Account/AccountPage.tsx
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, Navigate } from "react-router-dom";
 import { Navbar } from "@comp/home/Navbar";
 import { useCartStore } from "@state/cart.store";
 import { useUIStore } from "@state/ui.store";
@@ -9,63 +8,62 @@ import { LogOut, Mail, User as UserIcon, MapPin, Heart, Bell, Package } from "lu
 
 type Tab = "overview" | "profile" | "addresses" | "orders" | "prefs";
 
+type AddressForm = {
+  provincia: string;
+  cidade: string;
+  bairro: string;
+  referencia: string;
+};
+
 export default function AccountPage() {
   const cart = useCartStore();
   const ui = useUIStore();
-
-  const { user, orders, addresses, prefs, loading, signIn, signOut, updateProfile, saveAddress, removeAddress, updatePrefs } =
+  const { user, orders, addresses, prefs, loading, signOut, updateProfile, saveAddress, removeAddress, updatePrefs } =
     useAccountController();
 
   const [tab, setTab] = useState<Tab>("overview");
 
-  const menuOpen = ui.menuOpen;
-  const setMenuOpenProp = (v: boolean) => {
-    const anyStore = ui as any;
-    if (typeof anyStore.setMenuOpen === "function") {
-      if (anyStore.setMenuOpen.length >= 1) anyStore.setMenuOpen(v);
-      else anyStore.setMenuOpen();
-    } else if (typeof anyStore.toggleMenu === "function") {
-      if (!!menuOpen !== !!v) anyStore.toggleMenu();
-    }
-  };
-
-  // auth form
+  // Perfil
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
 
-  // address form
-  const [addr, setAddr] = useState({ street: "", city: "", state: "", zip: "" });
+  // Endereço
+  const [addr, setAddr] = useState<AddressForm>({
+    provincia: "",
+    cidade: "",
+    bairro: "",
+    referencia: "",
+  });
 
   useEffect(() => {
     if (user?.email) setEmail(user.email);
-    if ((user as any)?.name) setName((user as any).name);
-  }, [user?.email]);
+    const uName = (user as any)?.name;
+    if (uName) setName(uName);
+  }, [user?.email, (user as any)?.name]);
 
-  const totalQty = cart.totalQty;
-  const wishlistCount = cart.wishlistCount;
+  // Segurança extra se o guard falhar
+  if (!loading && !user) return <Navigate to="/login?back=/account" replace />;
 
-  const sections = useMemo(
-    () => [
-      { id: "overview", label: "Visão geral" },
-      { id: "profile", label: "Detalhes do perfil" },
-      { id: "addresses", label: "Endereços" },
-      { id: "orders", label: "Pedidos" },
-      { id: "prefs", label: "Preferências" },
-    ],
-    []
-  );
+  const setMenuOpen = (v: boolean) => {
+    const anyStore = ui as any;
+    if (typeof anyStore.setMenuOpen === "function") {
+      anyStore.setMenuOpen.length ? anyStore.setMenuOpen(v) : anyStore.setMenuOpen();
+    } else if (typeof anyStore.toggleMenu === "function" && !!ui.menuOpen !== !!v) {
+      anyStore.toggleMenu();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar
         sections={[]}
         active=""
-        cartCount={totalQty}
-        wishlistCount={wishlistCount}
-        searchQuery={""}
+        cartCount={cart.totalQty}
+        wishlistCount={cart.wishlistCount}
+        searchQuery=""
         setSearchQuery={() => {}}
-        menuOpen={menuOpen}
-        setMenuOpen={setMenuOpenProp}
+        menuOpen={ui.menuOpen}
+        setMenuOpen={setMenuOpen}
         smoothScrollTo={() => {}}
       />
 
@@ -78,296 +76,180 @@ export default function AccountPage() {
 
         <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 mb-6">Minha conta</h1>
 
-        {/* Se não logado: identificação simples */}
-        {!user && (
-          <section className="max-w-2xl rounded-xl border border-slate-200/40 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Identificação</h2>
-            <div className="grid gap-3">
-              <label className="text-sm text-gray-600">Nome</label>
-              <input
-                className="rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Seu nome"
-              />
-              <label className="text-sm text-gray-600 mt-2">Email</label>
-              <input
-                className="rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
-              />
-              <div className="mt-4 flex gap-3">
-                <button
-                  onClick={() => signIn({ name: name || "Convidado", email: email || undefined })}
-                  className="rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 transition-colors"
-                >
-                  Continuar
-                </button>
-                <Link
-                  to="/"
-                  className="rounded-md border border-slate-200/60 bg-white hover:bg-gray-50 text-gray-700 font-semibold px-5 py-2.5 transition-colors"
-                >
-                  Voltar
-                </Link>
+        <div className="mt-2 grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
+          {/* Navegação lateral */}
+          <aside className="rounded-xl border border-slate-200/40 bg-white p-4 shadow-sm">
+            <nav className="grid gap-1">
+              <TabBtn label="Visão geral" active={tab === "overview"} onClick={() => setTab("overview")} icon={<span className="w-5 h-5 grid place-items-center rounded-full bg-blue-100 text-blue-700">🏠</span>} />
+              <TabBtn label="Detalhes do perfil" active={tab === "profile"} onClick={() => setTab("profile")} icon={<UserIcon className="w-4 h-4" />} />
+              <TabBtn label="Endereços" active={tab === "addresses"} onClick={() => setTab("addresses")} icon={<MapPin className="w-4 h-4" />} />
+              <TabBtn label="Pedidos" active={tab === "orders"} onClick={() => setTab("orders")} icon={<Package className="w-4 h-4" />} />
+              <TabBtn label="Preferências" active={tab === "prefs"} onClick={() => setTab("prefs")} icon={<Bell className="w-4 h-4" />} />
+
+              <div className="h-px bg-slate-200/60 my-2" />
+              <button onClick={() => signOut()} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-rose-600 hover:bg-rose-50">
+                <LogOut className="w-4 h-4" /> Sair
+              </button>
+            </nav>
+          </aside>
+
+          {/* Conteúdo */}
+          <section className="space-y-6">
+            {loading && <Panel>Carregando…</Panel>}
+
+            {!loading && tab === "overview" && (
+              <div className="grid md:grid-cols-2 gap-6">
+                <Tile icon={<UserIcon className="w-4 h-4" />} title="Detalhes do perfil" subtitle="Editar" />
+                <Tile icon={<MapPin className="w-4 h-4" />} title="Endereços" subtitle="Adicionar novo" />
+                <Tile icon={<Heart className="w-4 h-4" />} title="Lista de desejos" subtitle="Ver todos" />
+                <Tile icon={<Bell className="w-4 h-4" />} title="Preferências" subtitle="Gerenciar" />
               </div>
-            </div>
-          </section>
-        )}
+            )}
 
-        {/* Logado */}
-        {user && (
-          <div className="mt-2 grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
-            {/* Side nav */}
-            <aside className="rounded-xl border border-slate-200/40 bg-white p-4 shadow-sm">
-              <nav className="grid gap-1">
-                <button
-                  onClick={() => setTab("overview")}
-                  className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
-                    tab === "overview" ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"
-                  }`}
-                >
-                  <span className="w-5 h-5 grid place-items-center rounded-full bg-blue-100 text-blue-700">🏠</span>
-                  Visão geral
-                </button>
-                <button
-                  onClick={() => setTab("profile")}
-                  className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
-                    tab === "profile" ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"
-                  }`}
-                >
-                  <UserIcon className="w-4 h-4" /> Detalhes do perfil
-                </button>
-                <button
-                  onClick={() => setTab("addresses")}
-                  className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
-                    tab === "addresses" ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"
-                  }`}
-                >
-                  <MapPin className="w-4 h-4" /> Endereços
-                </button>
-                <button
-                  onClick={() => setTab("orders")}
-                  className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
-                    tab === "orders" ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"
-                  }`}
-                >
-                  <Package className="w-4 h-4" /> Pedidos
-                </button>
-                <button
-                  onClick={() => setTab("prefs")}
-                  className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
-                    tab === "prefs" ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"
-                  }`}
-                >
-                  <Bell className="w-4 h-4" /> Preferências
-                </button>
-
-                <div className="h-px bg-slate-200/60 my-2" />
-                <button
-                  onClick={() => signOut()}
-                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
-                >
-                  <LogOut className="w-4 h-4" /> Sair
-                </button>
-              </nav>
-            </aside>
-
-            {/* Content */}
-            <section className="space-y-6">
-              {loading && (
-                <div className="rounded-xl border border-slate-200/40 bg-white p-6 shadow-sm">
-                  Carregando…
+            {!loading && tab === "profile" && (
+              <Panel className="max-w-2xl">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Perfil</h2>
+                <div className="grid gap-3">
+                  <label className="text-sm text-gray-600">Nome</label>
+                  <input className="rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm" value={name} onChange={(e) => setName(e.target.value)} />
+                  <label className="text-sm text-gray-600 mt-2">Email</label>
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-gray-500" />
+                    <input className="flex-1 rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  </div>
+                  <button onClick={() => updateProfile({ name, email })} className="mt-4 w-fit rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 transition-colors">
+                    Salvar alterações
+                  </button>
                 </div>
-              )}
+              </Panel>
+            )}
 
-              {!loading && tab === "overview" && (
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="rounded-xl border border-slate-200/40 bg-white p-5 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 grid place-items-center rounded-full bg-blue-100 text-blue-700">
-                        <UserIcon className="w-4 h-4" />
+            {!loading && tab === "addresses" && (
+              <div className="grid lg:grid-cols-2 gap-6">
+                <Panel>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Meus endereços</h2>
+                  <div className="space-y-3">
+                    {addresses.length === 0 && <div className="text-sm text-gray-500">Nenhum endereço.</div>}
+                    {addresses.map((a: any) => (
+                      <div key={a.id} className="rounded-lg border border-slate-200/60 p-3 flex justify-between items-start">
+                        <div className="text-sm text-gray-700">
+                          {a.provincia}, {a.cidade} — {a.bairro}{a.referencia ? `, ref.: ${a.referencia}` : ""}
+                        </div>
+                        <button onClick={() => removeAddress(a.id)} className="text-rose-600 hover:underline text-sm">
+                          Remover
+                        </button>
                       </div>
-                      <div>
-                        <div className="font-semibold text-gray-900">Detalhes do perfil</div>
-                        <div className="text-sm text-gray-500">Editar</div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
+                </Panel>
 
-                  <div className="rounded-xl border border-slate-200/40 bg-white p-5 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 grid place-items-center rounded-full bg-blue-100 text-blue-700">
-                        <MapPin className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="font-semibold text-gray-900">Endereços</div>
-                        <div className="text-sm text-gray-500">Adicionar novo</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-200/40 bg-white p-5 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 grid place-items-center rounded-full bg-blue-100 text-blue-700">
-                        <Heart className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="font-semibold text-gray-900">Lista de desejos</div>
-                        <div className="text-sm text-gray-500">Ver todos</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-200/40 bg-white p-5 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 grid place-items-center rounded-full bg-blue-100 text-blue-700">
-                        <Bell className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="font-semibold text-gray-900">Preferências</div>
-                        <div className="text-sm text-gray-500">Gerenciar</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {!loading && tab === "profile" && (
-                <div className="rounded-xl border border-slate-200/40 bg-white p-6 shadow-sm max-w-2xl">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Perfil</h2>
+                <Panel>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Adicionar/Editar</h2>
                   <div className="grid gap-3">
-                    <label className="text-sm text-gray-600">Nome</label>
-                    <input
-                      className="rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
-                    <label className="text-sm text-gray-600 mt-2">Email</label>
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-gray-500" />
-                      <input
-                        className="flex-1 rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                      />
+                    <input className="rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm" placeholder="Província" value={addr.provincia} onChange={(e) => setAddr({ ...addr, provincia: e.target.value })} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input className="rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm" placeholder="Cidade" value={addr.cidade} onChange={(e) => setAddr({ ...addr, cidade: e.target.value })} />
+                      <input className="rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm" placeholder="Bairro" value={addr.bairro} onChange={(e) => setAddr({ ...addr, bairro: e.target.value })} />
                     </div>
+                    <input className="rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm" placeholder="Ponto de referência (opcional)" value={addr.referencia} onChange={(e) => setAddr({ ...addr, referencia: e.target.value })} />
                     <button
-                      onClick={() => updateProfile({ name, email })}
-                      className="mt-4 w-fit rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 transition-colors"
+                      onClick={async () => {
+                        await saveAddress(addr);
+                        setAddr({ provincia: "", cidade: "", bairro: "", referencia: "" });
+                      }}
+                      className="mt-1 w-fit rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 transition-colors"
                     >
-                      Salvar alterações
+                      Salvar endereço
                     </button>
                   </div>
-                </div>
-              )}
+                </Panel>
+              </div>
+            )}
 
-              {!loading && tab === "addresses" && (
-                <div className="grid lg:grid-cols-2 gap-6">
-                  <div className="rounded-xl border border-slate-200/40 bg-white p-6 shadow-sm">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Meus endereços</h2>
-                    <div className="space-y-3">
-                      {addresses.length === 0 && <div className="text-sm text-gray-500">Nenhum endereço.</div>}
-                      {addresses.map((a: any) => (
-                        <div key={a.id} className="rounded-lg border border-slate-200/60 p-3 flex justify-between items-start">
-                          <div className="text-sm text-gray-700">
-                            {a.street}, {a.city} - {a.state}, {a.zip}
-                          </div>
-                          <button
-                            onClick={() => removeAddress(a.id)}
-                            className="text-rose-600 hover:underline text-sm"
-                          >
-                            Remover
-                          </button>
+            {!loading && tab === "orders" && (
+              <Panel>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Meus pedidos</h2>
+                {orders.length === 0 ? (
+                  <div className="text-sm text-gray-500">Nenhum pedido.</div>
+                ) : (
+                  <div className="divide-y divide-slate-200/60">
+                    {orders.map((o: any) => (
+                      <div key={o.id} className="py-4 flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-gray-900">{o.number ?? `#${o.id}`}</div>
+                          <div className="text-sm text-gray-500">{new Date(o.createdAt).toLocaleString("pt-MZ")}</div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-200/40 bg-white p-6 shadow-sm">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Adicionar/Editar</h2>
-                    <div className="grid gap-3">
-                      <input
-                        className="rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm"
-                        placeholder="Rua"
-                        value={addr.street}
-                        onChange={(e) => setAddr({ ...addr, street: e.target.value })}
-                      />
-                      <div className="grid grid-cols-2 gap-3">
-                        <input
-                          className="rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm"
-                          placeholder="Cidade"
-                          value={addr.city}
-                          onChange={(e) => setAddr({ ...addr, city: e.target.value })}
-                        />
-                        <input
-                          className="rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm"
-                          placeholder="Estado"
-                          value={addr.state}
-                          onChange={(e) => setAddr({ ...addr, state: e.target.value })}
-                        />
+                        <div className="text-sm text-gray-700">
+                          {(o.items?.length ?? 0)} itens •{" "}
+                          {Number((o.total ?? o.subtotal) ?? 0).toLocaleString("pt-MZ", { style: "currency", currency: "MZN" })}
+                        </div>
                       </div>
-                      <input
-                        className="rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm"
-                        placeholder="CEP"
-                        value={addr.zip}
-                        onChange={(e) => setAddr({ ...addr, zip: e.target.value })}
-                      />
-                      <button
-                        onClick={async () => {
-                          await saveAddress(addr);
-                          setAddr({ street: "", city: "", state: "", zip: "" });
-                        }}
-                        className="mt-1 w-fit rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 transition-colors"
-                      >
-                        Salvar endereço
-                      </button>
-                    </div>
+                    ))}
                   </div>
-                </div>
-              )}
+                )}
+              </Panel>
+            )}
 
-              {!loading && tab === "orders" && (
-                <div className="rounded-xl border border-slate-200/40 bg-white p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Meus pedidos</h2>
-                  {orders.length === 0 ? (
-                    <div className="text-sm text-gray-500">Nenhum pedido.</div>
-                  ) : (
-                    <div className="divide-y divide-slate-200/60">
-                      {orders.map((o: any) => (
-                        <div key={o.id} className="py-4 flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900">Pedido #{o.id}</div>
-                            <div className="text-sm text-gray-500">{new Date(o.createdAt).toLocaleString()}</div>
-                          </div>
-                          <div className="text-sm text-gray-700">
-                            {o.items?.length ?? 0} itens • Total {Number(o.total ?? o.subtotal).toLocaleString("pt-MZ",{style:"currency",currency:"MZN"})}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {!loading && tab === "prefs" && (
-                <div className="rounded-xl border border-slate-200/40 bg-white p-6 shadow-sm max-w-xl">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Preferências de comunicação</h2>
-                  <label className="flex items-center gap-3 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={!!prefs.marketing}
-                      onChange={(e) => updatePrefs({ marketing: e.target.checked })}
-                      className="h-4 w-4 rounded border-slate-300"
-                    />
-                    Receber emails de ofertas e novidades
-                  </label>
-                </div>
-              )}
-            </section>
-          </div>
-        )}
+            {!loading && tab === "prefs" && (
+              <Panel className="max-w-xl">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Preferências de comunicação</h2>
+                <label className="flex items-center gap-3 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={!!prefs.marketing}
+                    onChange={(e) => updatePrefs({ marketing: e.target.checked })}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  Receber emails de ofertas e novidades
+                </label>
+              </Panel>
+            )}
+          </section>
+        </div>
       </main>
     </div>
+  );
+}
+
+/* ---------- UI helpers (clean) ---------- */
+function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`rounded-xl border border-slate-200/40 bg-white p-6 shadow-sm ${className}`}>{children}</div>;
+}
+
+function Tile({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle?: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200/40 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 grid place-items-center rounded-full bg-blue-100 text-blue-700">{icon}</div>
+        <div>
+          <div className="font-semibold text-gray-900">{title}</div>
+          {subtitle && <div className="text-sm text-gray-500">{subtitle}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TabBtn({
+  label,
+  active,
+  onClick,
+  icon,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
+        active ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

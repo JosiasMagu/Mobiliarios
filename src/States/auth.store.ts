@@ -1,53 +1,56 @@
-// src/States/auth.store.ts
-import { create } from "zustand";
-import { getOrCreateProfile, saveProfile } from "@repo/customer.repository";
+// state/auth.store.ts
+import { httpPost } from "@/Utils/api";
 
-export type User = { id: string; name: string; email: string };
+export type Role = "ADMIN" | "GERENTE" | "CLIENTE";
+export type User = { id: number; name: string; email: string; role: Role };
 
 type AuthState = {
-  user: User | null;
   token: string | null;
-  signIn: (email: string, name?: string) => Promise<void>;
-  signOut: () => void;
-  updateProfile: (p: Partial<User>) => Promise<void>;
+  user: User | null;
+  setAuth: (t: string, u: User) => void;
+  clear: () => void;
+  onChange: (fn: () => void) => () => void;
 };
 
-const LS_KEY = "app_auth_v1";
+const LS = "mobiliario:auth_v1";
+let listeners: Array<() => void> = [];
 
-function loadFromStorage(): { user: User | null; token: string | null } {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return { user: null, token: null };
-    const parsed = JSON.parse(raw);
-    return { user: parsed?.user ?? null, token: parsed?.token ?? null };
-  } catch {
-    return { user: null, token: null };
-  }
+function emit() { listeners.forEach(fn => fn()); }
+function load(): { token: string|null; user: User|null } {
+  try { return JSON.parse(localStorage.getItem(LS) || "{}"); } catch { return { token:null, user:null }; }
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
-  user: loadFromStorage().user,
-  token: loadFromStorage().token,
+export const auth: AuthState = {
+  token: load().token ?? null,
+  user: load().user ?? null,
+  setAuth(t, u) { this.token = t; this.user = u; localStorage.setItem(LS, JSON.stringify({ token:t, user:u })); emit(); },
+  clear() { this.token = null; this.user = null; localStorage.removeItem(LS); emit(); },
+  onChange(fn) { listeners.push(fn); return () => { listeners = listeners.filter(f => f!==fn); }; }
+};
 
-  async signIn(email, name) {
-    const profile = await getOrCreateProfile(email.trim(), name);
-    const token = "mock-" + Date.now();
-    const user: User = { id: profile.id, name: profile.name, email: profile.email };
-    set({ user, token });
-    localStorage.setItem(LS_KEY, JSON.stringify({ user, token }));
-  },
+export function useAdminAuth() {
+  const isAdmin = () => !!auth.token && auth.user?.role === "ADMIN";
+  const authHeader = () => (auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined);
 
-  signOut() {
-    set({ user: null, token: null });
-    localStorage.removeItem(LS_KEY);
-  },
+  async function signIn(email: string, password: string) {
+    try {
+      const { token, user } = await httpPost<{token:string; user:User}>("/api/auth/login", { email, password });
+      auth.setAuth(token, user);
+      return true;
+    } catch { return false; }
+  }
+  function signOut() { auth.clear(); }
 
-  async updateProfile(p) {
-    const cur = get().user;
-    if (!cur) return;
-    const next: User = { ...cur, ...p };
-    await saveProfile(next);
-    set({ user: next });
-    localStorage.setItem(LS_KEY, JSON.stringify({ user: next, token: get().token }));
-  },
-}));
+  return { token: auth.token, user: auth.user, isAdmin, authHeader, signIn, signOut, subscribe: auth.onChange };
+}
+
+// SHIM legado para código que importa useAuthStore de @state/auth.store
+export function useAuthStore() {
+  return {
+    token: auth.token,
+    user: auth.user,
+    isLogged: () => !!auth.token,
+    isAdmin: () => auth.user?.role === "ADMIN",
+    signOut: () => auth.clear(),
+  };
+}

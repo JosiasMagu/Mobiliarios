@@ -1,4 +1,3 @@
-// src/components/home/Navbar.tsx
 import { Menu, Search, ShoppingCart, User, X, Heart } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -23,6 +22,11 @@ export function Navbar({
   setMenuOpen: (v: boolean) => void;
   smoothScrollTo: (id: string) => void;
 }) {
+  const onClickSection = (id: string) => {
+    smoothScrollTo(id);
+    setMenuOpen(false);
+  };
+
   return (
     <header
       className="
@@ -32,8 +36,8 @@ export function Navbar({
       "
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex h-18 items-center justify-between">
-          <button onClick={() => smoothScrollTo("home")} className="flex items-center gap-3 py-3">
+        <div className="flex h-16 items-center justify-between">
+          <button onClick={() => onClickSection('home')} className="flex items-center gap-3 py-3">
             <div className="w-9 h-9 rounded-md bg-gradient-to-br from-blue-600 to-indigo-600 grid place-items-center text-white font-bold">
               M
             </div>
@@ -47,7 +51,7 @@ export function Navbar({
             {sections.map((s) => (
               <button
                 key={s.id}
-                onClick={() => smoothScrollTo(s.id)}
+                onClick={() => onClickSection(s.id)}
                 className={`text-sm font-medium transition-colors pb-3 border-b-2 ${
                   active === s.id
                     ? "text-blue-700 border-blue-700"
@@ -71,7 +75,6 @@ export function Navbar({
               />
             </div>
 
-            {/* Wishlist */}
             <Link to="/wishlist" className="relative p-2 rounded-md hover:bg-slate-100" aria-label="Favoritos">
               <Heart className="w-5 h-5" />
               {!!wishlistCount && (
@@ -81,7 +84,6 @@ export function Navbar({
               )}
             </Link>
 
-            {/* Carrinho */}
             <Link to="/cart" className="relative p-2 rounded-md hover:bg-slate-100" aria-label="Carrinho">
               <ShoppingCart className="w-5 h-5" />
               {!!cartCount && (
@@ -91,7 +93,6 @@ export function Navbar({
               )}
             </Link>
 
-            {/* Conta */}
             <Link to="/account" className="p-2 rounded-md hover:bg-slate-100" aria-label="Conta">
               <User className="w-5 h-5" />
             </Link>
@@ -113,7 +114,7 @@ export function Navbar({
             {sections.map((s) => (
               <button
                 key={s.id}
-                onClick={() => smoothScrollTo(s.id)}
+                onClick={() => onClickSection(s.id)}
                 className={`w-full text-left px-2 py-3 rounded-md ${
                   active === s.id ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"
                 }`}
@@ -133,17 +134,18 @@ export function Navbar({
               </div>
             </div>
 
-            {/* Acesso rápido no menu móvel */}
             <div className="grid grid-cols-2 gap-2 pt-3">
               <Link
                 to="/cart"
                 className="rounded-md border border-slate-200/60 px-3 py-2 text-center text-sm hover:bg-gray-50"
+                onClick={() => setMenuOpen(false)}
               >
                 Carrinho
               </Link>
               <Link
                 to="/account"
                 className="rounded-md border border-slate-200/60 px-3 py-2 text-center text-sm hover:bg-gray-50"
+                onClick={() => setMenuOpen(false)}
               >
                 Minha conta
               </Link>
