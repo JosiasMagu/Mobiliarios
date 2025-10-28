@@ -8,9 +8,15 @@ type Props = { children: ReactNode };
 export default function AdminRoute({ children }: Props) {
   const { isAdmin } = useAdminAuth();
   const loc = useLocation();
+
+  // evita loop caso já esteja na página de login admin
+  const atAdminLogin = /^\/admin\/login/i.test(loc.pathname);
+
   if (!isAdmin()) {
-    const back = encodeURIComponent(loc.pathname + loc.search);
+    if (atAdminLogin) return <>{children}</>;
+    const back = encodeURIComponent(loc.pathname + loc.search + loc.hash);
     return <Navigate to={`/admin/login?back=${back}`} replace />;
   }
+
   return <>{children}</>;
 }

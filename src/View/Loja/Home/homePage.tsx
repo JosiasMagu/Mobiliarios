@@ -1,6 +1,5 @@
 import React from "react";
 import { useHomeController } from "@controller/Loja/home.controller";
-
 import { Navbar } from "@comp/home/Navbar";
 import { Hero } from "@comp/home/Hero";
 import { Features } from "@comp/home/Features";
@@ -59,8 +58,8 @@ const MobiliarioHomePage: React.FC = () => {
           list={list}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          onAddCart={addCart}     
-          onAddWish={addWish}     
+          onAddCart={addCart}
+          onAddWish={addWish}
         />
       </div>
 
@@ -73,11 +72,9 @@ const MobiliarioHomePage: React.FC = () => {
       </div>
 
       <TrustBar />
-
       <div ref={refCb["newsletter"] as any}>
         <Newsletter email={email} setEmail={setEmail} />
       </div>
-
       <Footer />
     </div>
   );

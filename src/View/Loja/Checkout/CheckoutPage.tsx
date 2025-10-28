@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Navbar } from "@/Components/home/Navbar";
-import { listPaymentMethods, MZ_PHONE_REGEX, type PaymentMethod } from "@/Repository/payment.repository";
+import { listPaymentMethods, type PaymentMethod } from "@/Repository/payment.repository";
 import { listShippingRules, estimateZoneCost, type Carrier } from "@/Repository/shipping.repository";
 import { useCartStore } from "@state/cart.store";
-import { useAuthStore } from "@state/auth.store";
 import { createOrder, type PaymentKind, type ShippingMethod } from "@repo/order.repository";
+
+// Regex local para telefone MZ
+const MZ_PHONE_REGEX = /^(?:82|83|84|85|86|87)\d{7}$/;
 
 type Address = {
   nome: string;
@@ -28,9 +30,6 @@ export default function CheckoutPage() {
     price: i.price,
     image: i.image,
   }));
-
-  // Usuário logado
-  const auth = useAuthStore();
 
   // Endereço
   const [addr, setAddr] = useState<Address>({
@@ -60,8 +59,8 @@ export default function CheckoutPage() {
         setShippingRules(ships);
         if (pms.length) setPaymentId(String(pms[0].id));
         if (ships.length) setShippingId(String(ships[0].id));
-      } catch (e) {
-        // silencia; erros aparecerão ao validar/usar
+      } catch {
+        // silencioso
       }
     })();
   }, []);
@@ -121,7 +120,7 @@ export default function CheckoutPage() {
   function recalcZoneCost(sel?: Carrier) {
     const rule = sel ?? shipping;
     if (rule?.service === "zone" && addr.provincia) {
-      // peso estimado simples para o cálculo base
+      // peso estimado simples
       setZoneCost(estimateZoneCost(rule, 5));
     } else {
       setZoneCost(undefined);
@@ -139,10 +138,6 @@ export default function CheckoutPage() {
 
   async function placeOrder() {
     if (!validate()) return;
-
-    const customer = auth.user
-      ? { guest: false as const, id: auth.user.id, email: (auth.user as any).email ?? undefined, name: auth.user.name }
-      : { guest: true as const, name: addr.nome };
 
     try {
       const order = await createOrder({
@@ -262,7 +257,7 @@ export default function CheckoutPage() {
                     />
                     <span className="text-sm font-medium">
                       {s.service === "pickup" && "Retirar no local"}
-                      {s.service === "flat" && "Taxa fixa"}
+                      {String(s.service) === "flat" && "Taxa fixa"}
                       {s.service === "standard" && "Padrão (3–5 dias úteis)"}
                       {s.service === "express" && "Expresso (1–2 dias úteis)"}
                       {s.service === "zone" && "Por zona"}
@@ -303,7 +298,7 @@ export default function CheckoutPage() {
               {(payment?.type === "mpesa" || payment?.type === "emola") && (
                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mt-3 text-sm text-slate-700">
                   <div>Telefone para pagamento: <strong>{(payment as any).walletPhone ?? "—"}</strong></div>
-                  {payment?.instructions && <div className="mt-1">{payment.instructions}</div>}
+                  {(payment as any)?.instructions && <div className="mt-1">{(payment as any).instructions}</div>}
                 </div>
               )}
               {payment?.type === "bank" && (
@@ -312,7 +307,7 @@ export default function CheckoutPage() {
                   <div>Titular: <strong>{(payment as any).accountHolder ?? "—"}</strong></div>
                   <div>Nº da conta: <strong>{(payment as any).accountNumber ?? "—"}</strong></div>
                   {(payment as any).iban && <div>NIB/IBAN: <strong>{(payment as any).iban}</strong></div>}
-                  {payment?.instructions && <div className="pt-1">{payment.instructions}</div>}
+                  {(payment as any)?.instructions && <div className="pt-1">{(payment as any).instructions}</div>}
                 </div>
               )}
               {errors.payment && <p className="text-red-600 text-sm mt-2">{errors.payment}</p>}

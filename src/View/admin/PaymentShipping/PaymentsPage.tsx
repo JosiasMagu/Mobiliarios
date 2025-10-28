@@ -1,8 +1,6 @@
-// src/View/admin/PaymentShipping/PaymentsPage.tsx
 import { useEffect, useState } from "react";
 import {
   listPaymentMethods,
-  upsertPaymentMethod,
   removePaymentMethod,
   type PaymentMethod,
 } from "@/Repository/payment.repository";
@@ -14,6 +12,7 @@ import {
   saveShippingRules,
   type Carrier,
   type ShippingRules,
+  type CarrierUpsert,
 } from "@/Repository/shipping.repository";
 import PaymentMethodFormDialog from "@/Components/admin/PaymentMethodFormDialog";
 import CarrierFormDialog from "@/Components/admin/CarrierFormDialog";
@@ -27,14 +26,21 @@ export default function PaymentsPage() {
   const [crOpen, setCrOpen] = useState(false);
   const [crEdit, setCrEdit] = useState<Carrier | null>(null);
 
-  const reloadAll = () => {
-    setPayments(listPaymentMethods());
-    setCarriers(listCarriers());
-    setRules(getShippingRules());
-  };
+  async function reloadPayments() {
+    setPayments(await listPaymentMethods());
+  }
+  async function reloadCarriers() {
+    setCarriers(await listCarriers());
+  }
+  async function reloadRules() {
+    setRules(await getShippingRules());
+  }
+  async function reloadAll() {
+    await Promise.all([reloadPayments(), reloadCarriers(), reloadRules()]);
+  }
 
   useEffect(() => {
-    reloadAll();
+    void reloadAll();
   }, []);
 
   return (
@@ -80,7 +86,7 @@ export default function PaymentsPage() {
                       <button className="rounded-md ring-1 ring-slate-200 px-2 py-1" onClick={() => { setPmEdit(p); setPmOpen(true); }}>Editar</button>
                       <button
                         className="rounded-md ring-1 ring-rose-200 text-rose-700 px-2 py-1"
-                        onClick={() => { removePaymentMethod(p.id); setPayments(listPaymentMethods()); }}
+                        onClick={async () => { await removePaymentMethod(p.id); await reloadPayments(); }}
                       >
                         Excluir
                       </button>
@@ -139,7 +145,7 @@ export default function PaymentsPage() {
                       <button className="rounded-md ring-1 ring-slate-200 px-2 py-1" onClick={() => { setCrEdit(c); setCrOpen(true); }}>Editar</button>
                       <button
                         className="rounded-md ring-1 ring-rose-200 text-rose-700 px-2 py-1"
-                        onClick={() => setCarriers(deleteCarrier(c.id))}
+                        onClick={async () => { setCarriers(await deleteCarrier(c.id)); }}
                       >
                         Excluir
                       </button>
@@ -160,14 +166,14 @@ export default function PaymentsPage() {
         <div className="font-bold mb-3">Regras de Frete</div>
         <form
           className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             const fd = new FormData(e.currentTarget as HTMLFormElement);
             const next: ShippingRules = {
               freeShippingMin: fd.get("freeShippingMin") ? Number(fd.get("freeShippingMin")) : undefined,
               enablePickup: Boolean(fd.get("enablePickup")),
             };
-            setRules(saveShippingRules(next));
+            setRules(await saveShippingRules(next));
           }}
         >
           <label className="grid gap-1 text-sm">
@@ -197,13 +203,15 @@ export default function PaymentsPage() {
       <PaymentMethodFormDialog
         open={pmOpen}
         initial={pmEdit ?? undefined}
-        onClose={() => { setPmOpen(false); setPayments(listPaymentMethods()); }}
+        onClose={async () => { setPmOpen(false); await reloadPayments(); }}
       />
       <CarrierFormDialog
         open={crOpen}
         initial={crEdit ?? undefined}
         onClose={() => setCrOpen(false)}
-        onSubmit={(data) => { setCarriers(upsertCarrier(data)); }}
+        onSubmit={async (data: CarrierUpsert) => {
+          setCarriers(await upsertCarrier(data));
+        }}
       />
     </div>
   );

@@ -56,10 +56,10 @@ export default function PaymentMethodFormDialog({ open, onClose, initial }: Prop
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!valid) return;
-    upsertPaymentMethod(form);
+    await upsertPaymentMethod(form);
     onClose();
   }
 

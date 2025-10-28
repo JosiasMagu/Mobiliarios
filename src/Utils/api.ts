@@ -1,10 +1,15 @@
 // utils/api.ts
-const BASE = import.meta.env.VITE_API_URL?.replace(/\/+$/,'') || "http://localhost:8080";
+const RAW = import.meta.env.VITE_API_URL || "http://localhost:8080";
+// remove barras finais duplicadas
+export const BASE = RAW.replace(/\/+$/, "");
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
-    try { const j = await res.json(); msg = j?.error || j?.message || msg; } catch {}
+    try {
+      const j = await res.json();
+      msg = (j && (j.error || j.message)) || msg;
+    } catch {}
     throw new Error(msg);
   }
   return res.json() as Promise<T>;

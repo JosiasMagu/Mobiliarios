@@ -33,11 +33,9 @@ export function useAdminAuth() {
   const authHeader = () => (auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined);
 
   async function signIn(email: string, password: string) {
-    try {
-      const { token, user } = await httpPost<{token:string; user:User}>("/api/auth/login", { email, password });
-      auth.setAuth(token, user);
-      return true;
-    } catch { return false; }
+    const { token, user } = await httpPost<{token:string; user:User}>("/api/auth/login", { email, password });
+    auth.setAuth(token, user);
+    return true;
   }
   function signOut() { auth.clear(); }
 
