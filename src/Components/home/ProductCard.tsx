@@ -1,46 +1,52 @@
-// src/components/home/ProductCard.tsx
-import { useMemo, useState } from "react";
+// src/Components/home/ProductCard.tsx
+import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { Product } from "@model/product.model";
 import { Eye, Heart, ShoppingCart, Check } from "lucide-react";
 import { currency } from "@utils/currency";
 import { Stars } from "@utils/rating";
 import { useCartStore } from "@state/cart.store";
-import { BASE } from "@utils/api";
 
-const PLACEHOLDER = "/placeholder.jpg";
-// antes: `${BASE}/api/img?url=${encodeURIComponent(u)}`
-const proxify = (u?: string) => (u ? u : PLACEHOLDER);
+const PLACEHOLDER = "/assets/placeholder.jpg";
 
-
-function firstUrl(p: any): string | undefined {
-  if (Array.isArray(p?.images) && p.images.length) {
-    const v = p.images[0];
-    return typeof v === "string" ? v : v?.url;
-  }
-  return p?.image;
-}
-
-export function ProductCard({
-  p,
-  onAddCart,
-  onAddWish,
-}: {
+type Props = {
   p: Product;
   onAddCart: (id: number) => void;
   onAddWish: (id: number) => void;
-}) {
+};
+
+function pickPrimary(p: Product): string {
+  if (p?.image) return String(p.image);
+  if (Array.isArray(p?.images) && p.images[0]) return String(p.images[0]);
+  if (p?.imageRel) return String(p.imageRel);
+  return PLACEHOLDER;
+}
+
+function collectImages(p: Product): string[] {
+  const out: string[] = [];
+  if (Array.isArray(p?.imagesRel)) out.push(...(p as any).imagesRel.map(String).filter(Boolean));
+  if (Array.isArray(p?.images)) out.push(...p.images.map(String).filter(Boolean));
+  if (p?.image) out.push(String(p.image));
+  return Array.from(new Set(out.filter(Boolean))).slice(0, 8);
+}
+
+export function ProductCard({ p, onAddCart, onAddWish }: Props) {
   const navigate = useNavigate();
   const cart = useCartStore();
-  const img = useMemo(() => firstUrl(p), [p]);
 
-  // controla fallback apenas uma vez para evitar loops
-  const [broken, setBroken] = useState(false);
-  const [toast, setToast] = useState(false);
+  const initial = React.useMemo(() => pickPrimary(p), [p]);
+  const allImgs = React.useMemo(() => {
+    const imgs = collectImages(p);
+    return imgs.length ? imgs : [PLACEHOLDER];
+  }, [p]);
+
+  const [idx, setIdx] = React.useState(0);
+  const src = allImgs[Math.min(idx, allImgs.length - 1)] ?? PLACEHOLDER;
 
   const inStock = (p as any).inStock ?? Number((p as any).stock ?? 0) > 0;
-  const to = `/p/${(p as any).id}`;
-  const src = broken ? PLACEHOLDER : proxify(img);
+  const to = `/p/${p.slug || p.id}`;
+
+  const [toast, setToast] = React.useState(false);
 
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -51,7 +57,7 @@ export function ProductCard({
         productId: Number((p as any).id),
         name: (p as any).name,
         price: Number((p as any).price),
-        image: img,
+        image: initial || src || PLACEHOLDER,
       },
       1
     );
@@ -60,15 +66,23 @@ export function ProductCard({
   };
 
   return (
-    <div className="relative rounded-2xl border bg-white overflow-hidden hover:shadow-sm transition">
+    <div className="relative rounded-2xl border bg-white overflow-hidden hover:shadow-sm transition" style={{ contentVisibility: "auto" }}>
       <div className="relative">
         <Link to={to} aria-label={`Ver produto ${p.name}`}>
           <img
             src={src}
-            onError={() => setBroken(true)}
             alt={p.name || "Produto"}
             loading="lazy"
+            decoding="async"
             className="w-full h-56 object-cover"
+            onError={(e) => {
+              const imgEl = e.currentTarget as HTMLImageElement;
+              if (idx + 1 < allImgs.length) {
+                setIdx(idx + 1);
+              } else {
+                imgEl.src = PLACEHOLDER;
+              }
+            }}
           />
         </Link>
 

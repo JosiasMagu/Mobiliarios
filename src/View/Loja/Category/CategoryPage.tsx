@@ -25,11 +25,9 @@ export default function CategoryPage() {
   const addWish = cartStore.addWish;
 
   const menuOpen = uiStore.menuOpen;
-  // adaptador: aceita boolean e chama método real do store
   const setMenuOpenProp = (v: boolean) => {
     const anyStore = uiStore as any;
     if (typeof anyStore.setMenuOpen === "function") {
-      // se a assinatura aceitar 1 arg, passa v; se não, só chama
       if (anyStore.setMenuOpen.length >= 1) anyStore.setMenuOpen(v);
       else anyStore.setMenuOpen();
     } else if (typeof anyStore.toggleMenu === "function") {
@@ -54,7 +52,12 @@ export default function CategoryPage() {
   const onAddCart = (id: number) => {
     const p = c.items.find((x) => Number(x.id) === Number(id));
     if (!p || !(p as any).inStock) return;
-    const image = (p as any).image ?? (p as any).images?.[0];
+    const image =
+      (p as any).imageRel ??
+      (Array.isArray((p as any).imagesRel) && (p as any).imagesRel[0]) ??
+      (p as any).image ??
+      (Array.isArray((p as any).images) && (p as any).images[0]) ??
+      "/assets/placeholder.jpg";
     addItem({ productId: p.id as any, name: p.name, price: Number(p.price), image }, 1);
   };
   const onAddWish = (id: number) => addWish(id);
@@ -107,7 +110,7 @@ export default function CategoryPage() {
               resetFilters={c.resetFilters}
             />
 
-            <section className="w-full lg:w-3/4 mt-8 lg:mt-0">
+            <section className="w-full lg:w-3/4 mt-8 lg:mt-0" style={{ contentVisibility: "auto" }}>
               <SortBar info={info} sort={c.sort} setSort={c.setSort} />
 
               {c.loading ? (

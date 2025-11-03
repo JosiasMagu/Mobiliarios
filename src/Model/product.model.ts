@@ -26,7 +26,15 @@ export interface Product {
   inStock: boolean;
   categorySlug?: string;
 
-  // extensões para o Admin (todos opcionais para não quebrar nada)
+  // campos úteis que já são retornados no repo (mantidos como opcionais)
+  slug?: string;
+  category?: { id: number; slug: string; name: string };
+
+  // NOVO: caminhos relativos para assets locais (não quebram nada antigo)
+  imageRel?: string;
+  imagesRel?: string[];
+
+  // extensões para o Admin (todos opcionais)
   description?: string;
   categoryId?: string;
   categoryName?: string;
@@ -56,9 +64,5 @@ export interface PagedResult<T> {
 }
 
 // Form shapes para Admin
-export type ProductCreate = Omit<
-  Product,
-  "id" | "createdAt" | "updatedAt"
->;
-
+export type ProductCreate = Omit<Product, "id" | "createdAt" | "updatedAt">;
 export type ProductUpdate = Partial<Product>;

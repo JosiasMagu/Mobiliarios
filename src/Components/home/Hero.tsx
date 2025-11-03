@@ -4,14 +4,14 @@ export function Hero({ smoothScrollTo }: { smoothScrollTo: (id: string) => void 
   return (
     <section
       id="home"
-      className="relative min-h-[88vh] grid place-items-center bg-slate-100"
-      style={{
-        backgroundImage:
-          "url('https://images.unsplash.com/photo-1555041469-a586c61ea9bc?q=80&w=2070&auto=format&fit=crop')",
-        backgroundPosition: "center",
-        backgroundSize: "cover",
-      }}
-    >
+ className="h-[420px] md:h-[520px] w-full rounded-2xl overflow-hidden bg-center bg-cover"
+        style={{
+          backgroundImage:
+            "linear-gradient(to bottom, rgba(0,0,0,.25), rgba(0,0,0,.35)), url('/assets/Sofas/inside-weather-Uxqlfigh6oE-unsplash.jpg')",
+          backgroundPosition: "center",
+          backgroundSize: "cover",
+        }}
+            >
       <div className="absolute inset-0 bg-black/40" />
       <div className="relative z-10 max-w-4xl mx-auto px-6 text-center text-white">
         <div className="inline-flex items-center gap-2 bg-white/15 px-3 py-1 rounded-full text-xs mb-4">

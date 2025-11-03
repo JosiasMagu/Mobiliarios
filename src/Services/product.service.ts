@@ -14,15 +14,24 @@ import {
   searchProducts as repoSearch,
 } from "@/Repository/product.repository";
 
-const API = import.meta.env.VITE_API_URL as string | undefined;
+// Base da API. Mantém default local para dev.
+const API_BASE = ((import.meta as any)?.env?.VITE_API_URL ?? "http://localhost:8080")
+  .toString()
+  .replace(/\/+$/, "");
+
 const MEM_KEY = "mobiliario.admin.products";
 
-// -------- Persistência local para modo dev --------
+// ---------------- Persistência mock p/ dev sem API ----------------
 function loadMem(): Product[] {
-  try { return JSON.parse(localStorage.getItem(MEM_KEY) || "[]") as Product[]; } catch { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(MEM_KEY) || "[]") as Product[];
+  } catch {
+    return [];
+  }
 }
-function saveMem(list: Product[]) { localStorage.setItem(MEM_KEY, JSON.stringify(list)); }
-
+function saveMem(list: Product[]) {
+  localStorage.setItem(MEM_KEY, JSON.stringify(list));
+}
 async function seedIfEmpty() {
   const cur = loadMem();
   if (cur.length === 0) {
@@ -39,42 +48,59 @@ async function seedIfEmpty() {
     saveMem(seeded);
   }
 }
-function genIdNumber(): number { return Date.now() + Math.floor(Math.random() * 1000); }
+function genIdNumber(): number {
+  return Date.now() + Math.floor(Math.random() * 1000);
+}
 void seedIfEmpty();
 
-// -------- Helpers HTTP --------
+// ---------------- Helper HTTP ----------------
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!API) throw new Error("API base URL ausente");
-  const res = await fetch(`${API.replace(/\/+$/,"")}${path}`, init);
-  if (!res.ok) throw new Error((await res.text()) || "Erro de rede");
+  if (!API_BASE) throw new Error("API base URL ausente");
+  const res = await fetch(`${API_BASE}${path}`, init);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(txt || `HTTP ${res.status}`);
+  }
   return res.json() as Promise<T>;
 }
 
-// -------- Loja (read-only) --------
-export async function getProduct(id: string | number): Promise<Product | null> {
-  if (API) return http<Product | null>(`/api/products/${id}`);
+// ================= Loja (read-only) =================
+/** Aceita id numérico OU slug. Nunca converte para número. */
+export async function getProduct(idOrSlug: string | number): Promise<Product | null> {
+  const param = encodeURIComponent(String(idOrSlug)); // evita NaN
+  if (API_BASE) {
+    // debug opcional:
+    // console.log("[getProduct] solicitando:", `/api/products/${param}`);
+    return http<Product | null>(`/api/products/${param}`);
+  }
   const mem = loadMem();
   if (mem.length) {
-    const pid = String(id);
-    return mem.find((p) => String((p as any).id) === pid) ?? null;
+    const key = String(idOrSlug).toLowerCase();
+    return (
+      mem.find((p: any) => String(p.id) === key || String(p.slug).toLowerCase() === key) ??
+      null
+    );
   }
-  return repoGetProduct(id);
+  return repoGetProduct(idOrSlug);
 }
 
 export async function listByCategory(slug: string): Promise<Product[]> {
-  if (API) return http<Product[]>(`/api/products?cat=${encodeURIComponent(slug)}`);
+  const s = String(slug || "").trim();
+  if (!s) return [];
+  if (API_BASE) return http<Product[]>(`/api/products?cat=${encodeURIComponent(s)}`);
+
   const mem = loadMem();
   if (mem.length) {
-    const s = slug.toLowerCase();
+    const k = s.toLowerCase();
     return mem.filter(
-      (p: any) => String(p.categorySlug ?? p.categoryName ?? "").toLowerCase() === s
+      (p: any) => String(p.categorySlug ?? p.categoryName ?? "").toLowerCase() === k
     );
   }
-  return repoListByCategory(slug);
+  return repoListByCategory(s);
 }
 
 export async function listAllProducts(): Promise<Product[]> {
-  if (API) return http<Product[]>(`/api/products`);
+  if (API_BASE) return http<Product[]>(`/api/products`);
   const mem = loadMem();
   if (mem.length) return mem;
   return repoListAll();
@@ -83,16 +109,17 @@ export async function listAllProducts(): Promise<Product[]> {
 export async function searchProducts(q: string): Promise<Product[]> {
   const s = q.trim();
   if (!s) return [];
-  if (API) return http<Product[]>(`/api/products?q=${encodeURIComponent(s)}`);
+  if (API_BASE) return http<Product[]>(`/api/products?q=${encodeURIComponent(s)}`);
+
   const mem = loadMem();
-  if (mem.length) return mem.filter(p => p.name.toLowerCase().includes(s.toLowerCase()));
-  return repoSearch(q);
+  if (mem.length) return mem.filter((p) => p.name.toLowerCase().includes(s.toLowerCase()));
+  return repoSearch(s);
 }
 
-// -------- Admin (CRUD + paginação) --------
+// ================= Admin (CRUD + paginação) =================
 export const productService = {
   async list(q: ProductQuery): Promise<PagedResult<Product>> {
-    if (API) {
+    if (API_BASE) {
       const params = new URLSearchParams();
       if (q.search) params.set("search", q.search);
       if (q.page) params.set("page", String(q.page));
@@ -100,7 +127,6 @@ export const productService = {
       if (q.categoryId) params.set("categoryId", q.categoryId);
       if (q.status && q.status !== "all") params.set("status", q.status);
       if (q.sort) params.set("sort", q.sort);
-      // ajuste quando tiver endpoints admin reais
       return http<PagedResult<Product>>(`/api/admin/products?${params.toString()}`);
     }
 
@@ -111,12 +137,12 @@ export const productService = {
     if (!data.length) data = await repoListAll();
 
     if (q.search) {
-      const s = q.search.toLowerCase();
+      const k = q.search.toLowerCase();
       data = data.filter(
         (p: any) =>
-          p.name.toLowerCase().includes(s) ||
-          String(p.categoryName ?? p.categorySlug ?? "").toLowerCase().includes(s) ||
-          (p.tags ?? []).some((t: string) => t.toLowerCase().includes(s))
+          p.name.toLowerCase().includes(k) ||
+          String(p.categoryName ?? p.categorySlug ?? "").toLowerCase().includes(k) ||
+          (p.tags ?? []).some((t: string) => t.toLowerCase().includes(k))
       );
     }
     if (q.status && q.status !== "all") {
@@ -129,7 +155,10 @@ export const productService = {
         name_desc: (a, b) => b.name.localeCompare(a.name),
         price_asc: (a, b) => Number(a.price ?? 0) - Number(b.price ?? 0),
         price_desc: (a, b) => Number(b.price ?? 0) - Number(a.price ?? 0),
-        created_desc: (a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")),
+        created_desc: (a, b) =>
+          String(b.updatedAt || b.createdAt || "").localeCompare(
+            String(a.updatedAt || a.createdAt || "")
+          ),
       };
       data = [...data].sort(map[q.sort] ?? (() => 0));
     }
@@ -142,7 +171,7 @@ export const productService = {
   },
 
   async create(payload: ProductCreate): Promise<Product> {
-    if (API) {
+    if (API_BASE) {
       return http<Product>(`/api/admin/products`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -165,7 +194,7 @@ export const productService = {
   },
 
   async update(id: number, patch: ProductUpdate): Promise<Product> {
-    if (API) {
+    if (API_BASE) {
       return http<Product>(`/api/admin/products/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -182,7 +211,7 @@ export const productService = {
   },
 
   async remove(id: number): Promise<void> {
-    if (API) {
+    if (API_BASE) {
       await http<void>(`/api/admin/products/${id}`, { method: "DELETE" });
       return;
     }
@@ -191,7 +220,7 @@ export const productService = {
   },
 
   async duplicate(id: number): Promise<Product> {
-    if (API) {
+    if (API_BASE) {
       return http<Product>(`/api/admin/products/${id}/duplicate`, { method: "POST" });
     }
     const list = loadMem();
@@ -211,10 +240,10 @@ export const productService = {
   },
 
   async uploadImages(files: File[]): Promise<string[]> {
-    if (API) {
+    if (API_BASE) {
       const fd = new FormData();
       files.forEach((f) => fd.append("files", f));
-      const res = await fetch(`${API.replace(/\/+$/,"")}/api/admin/uploads`, { method: "POST", body: fd });
+      const res = await fetch(`${API_BASE}/api/admin/uploads`, { method: "POST", body: fd });
       if (!res.ok) throw new Error("Falha ao fazer upload");
       return (await res.json()) as string[];
     }

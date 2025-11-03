@@ -16,6 +16,7 @@ import orders from "./routes/orders";
 import auth from "./routes/auth";
 import admin from "./routes/admin";
 import imgProxy from "./routes/img";
+import categories from "./routes/categories";
 
 const app = express();
 const ORIGIN = process.env.CORS_ORIGIN ?? process.env.FRONT_ORIGIN ?? "http://localhost:5173";
@@ -40,7 +41,7 @@ app.use(express.json({ limit: "1mb" }));
 if (morgan) app.use(morgan("dev"));
 if (rateLimit) app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300 }));
 
-// servir /placeholder.jpg etc.
+// estáticos para placeholder, etc.
 app.use(express.static(path.resolve(__dirname, "../public")));
 
 app.get("/health", (_req: Request, res: Response) => res.json({ ok: true }));
@@ -51,6 +52,7 @@ app.use("/api/img", imgProxy);
 // Rotas de API
 app.use("/api/auth", auth);
 app.use("/api/admin", admin);
+app.use("/api/categories", categories);     // <— montado aqui
 app.use("/api/payments", payments);
 app.use("/api/shipping", shipping);
 app.use("/api/products", products);

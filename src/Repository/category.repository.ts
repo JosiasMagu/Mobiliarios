@@ -1,168 +1,193 @@
 // src/Repository/category.repository.ts
-import raw from "../Data/categories.mock.json";
+import {
+  httpDelete,
+  httpGet,
+  httpPatch,
+  httpPost,
+  httpPut,
+} from "@/Utils/api";
+import type { Category as ModelCategory } from "@model/category.model";
+import { buildLocalImagesFor } from "@/Utils/img";
 
-/** ===== Tipos ===== */
-export type Category = {
-  id: string;                // mantém compat com teu mock
+/* =========================================================
+   PRODUTOS (mantidos para compat em páginas que usam ambos)
+   ========================================================= */
+
+export type ApiImage = string | { id?: number; url?: string; thumbUrl?: string };
+
+export type ApiProduct = {
+  id: number | string;
   name: string;
   slug: string;
-  image?: string;
-  icon?: string;             // novo: ícone opcional
-  parentId?: string | null;  // novo: subcategoria
-  position: number;          // novo: ordenação
-  isActive: boolean;         // novo: status
-  createdAt: string;
-  updatedAt: string;
-  [k: string]: any;
+  price: number | string;
+  stock?: number | string | null;
+  active?: boolean | null;
+  image?: string | null;
+  images?: ApiImage[] | null;
+  categoryId: number | string;
+  category?: { id: number; slug: string; name: string } | null;
 };
 
-export type CategoryUpsertInput = Partial<Pick<Category,
-  "id" | "slug" | "image" | "icon" | "parentId" | "position" | "isActive"
->> & {
-  name: string;
-};
-
-export type ReorderPair = { id: string; position: number };
-
-/** ===== Util ===== */
-const KEY = "admin.categories.v1";
-
-function slugify(s: string) {
-  return s
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase().trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)+/g, "");
+function normalizeImages(inp?: ApiImage[] | null): string[] {
+  if (!inp || !Array.isArray(inp)) return [];
+  return inp
+    .map((it) => {
+      if (typeof it === "string") return it;
+      if (it && typeof it === "object") return it.url || it.thumbUrl || "";
+      return "";
+    })
+    .filter(Boolean);
 }
 
-function nowISO() { return new Date().toISOString(); }
+export function normalizeProduct(p: ApiProduct) {
+  const stock = Number(p.stock ?? 0);
+  const imgsRemote = normalizeImages(p.images);
+  const primaryRemote =
+    typeof p.image === "string" && p.image ? p.image : imgsRemote[0];
 
-function normalizeSeed(x: any, idx: number): Category {
-  const n = String(x?.name ?? `Categoria ${idx + 1}`);
-  const t = nowISO();
-  return {
-    id: String(x?.id ?? (idx + 1)),
-    name: n,
-    slug: String(x?.slug ?? slugify(n)),
-    image: x?.image ?? undefined,
-    icon: x?.icon ?? undefined,
-    parentId: x?.parentId != null ? String(x.parentId) : null,
-    position: Number.isFinite(x?.position) ? Number(x.position) : idx + 1,
-    isActive: x?.isActive != null ? Boolean(x.isActive) : true,
-    createdAt: String(x?.createdAt ?? t),
-    updatedAt: String(x?.updatedAt ?? t),
-  };
-}
-
-/** ===== Persistência ===== */
-function load(): Category[] {
-  try {
-    const cached = localStorage.getItem(KEY);
-    if (cached) return JSON.parse(cached) as Category[];
-  } catch { /* ignore */ }
-
-  // seed a partir do JSON existente
-  const seeded = (raw as any[]).map(normalizeSeed);
-  try { localStorage.setItem(KEY, JSON.stringify(seeded)); } catch { /* ignore */ }
-  return seeded;
-}
-
-function save(all: Category[]) {
-  localStorage.setItem(KEY, JSON.stringify(all));
-}
-
-/** ===== API ===== */
-export async function listCategories(): Promise<Category[]> {
-  const all = load();
-  return all
-    .slice()
-    .sort((a, b) =>
-      (a.position - b.position) || a.name.localeCompare(b.name));
-}
-
-export async function getCategory(id: string): Promise<Category | null> {
-  const all = load();
-  return all.find(c => c.id === String(id)) ?? null;
-}
-
-export async function getCategoryBySlug(slug: string): Promise<Category | undefined> {
-  const all = load();
-  return all.find(c => c.slug === String(slug));
-}
-
-export async function upsertCategory(input: CategoryUpsertInput): Promise<Category> {
-  const all = load();
-  const t = nowISO();
-
-  // update
-  if (input.id) {
-    const idx = all.findIndex(c => c.id === String(input.id));
-    if (idx === -1) throw new Error("Categoria não encontrada");
-    const curr = all[idx];
-
-    const name = input.name ?? curr.name;
-    const next: Category = {
-      ...curr,
-      ...input,
-      name,
-      slug: slugify(input.slug || name),
-      parentId: input.parentId != null ? (input.parentId === "" ? null : String(input.parentId)) : curr.parentId,
-      position: Number.isFinite(input.position) ? Number(input.position) : curr.position,
-      isActive: input.isActive != null ? Boolean(input.isActive) : curr.isActive,
-      updatedAt: t,
-    };
-
-    all[idx] = next;
-    save(all);
-    return next;
-  }
-
-  // create
-  const name = input.name.trim();
-  const newId = (() => {
-    const max = all.reduce((m, c) => Math.max(m, Number(c.id) || 0), 0);
-    return String(max + 1);
-  })();
-
-  const row: Category = {
-    id: newId,
-    name,
-    slug: slugify(input.slug || name),
-    image: input.image,
-    icon: input.icon,
-    parentId: input.parentId != null ? (input.parentId === "" ? null : String(input.parentId)) : null,
-    position: Number.isFinite(input.position) ? Number(input.position) : (all.length + 1),
-    isActive: input.isActive != null ? Boolean(input.isActive) : true,
-    createdAt: t,
-    updatedAt: t,
-  };
-
-  all.push(row);
-  save(all);
-  return row;
-}
-
-export async function deleteCategory(id: string): Promise<void> {
-  const all = load();
-  const sid = String(id);
-  const filtered = all.filter(c => c.id !== sid && c.parentId !== sid); // remove filhos também
-  save(filtered);
-}
-
-export async function reorderCategories(pairs: ReorderPair[]): Promise<void> {
-  const all = load();
-  const map = new Map(pairs.map(p => [String(p.id), Number(p.position)]));
-  all.forEach(c => {
-    const p = map.get(c.id);
-    if (typeof p === "number" && Number.isFinite(p)) c.position = p;
+  const categorySlug = String(p.category?.slug ?? "").toLowerCase();
+  const local = buildLocalImagesFor({
+    id: Number(p.id),
+    slug: String(p.slug ?? ""),
+    categorySlug,
   });
-  save(all);
+
+  const imgsFinal = local.images.length ? local.images : imgsRemote;
+  const primaryFinal = local.primary ?? primaryRemote ?? null;
+
+  return {
+    id: Number(p.id),
+    name: String(p.name),
+    slug: String(p.slug),
+    price: Number(p.price),
+    stock,
+    inStock: stock > 0,
+    active: Boolean(p.active ?? true),
+
+    image: primaryFinal || null,
+    images: imgsFinal,
+
+    categoryId: Number(p.categoryId),
+    category: p.category
+      ? {
+          id: Number((p as any).category.id),
+          slug: String((p as any).category.slug),
+          name: String((p as any).category.name),
+        }
+      : undefined,
+    categorySlug,
+
+    imageRel: local.primary ?? undefined,
+    imagesRel: local.images.length ? local.images : undefined,
+  };
 }
 
-/** Helpers convenientes */
-export async function createCategory(input: Omit<CategoryUpsertInput, "id">) {
-  return upsertCategory(input);
+/* ============================
+   CATEGORIES (alinhado ao Model)
+   ============================ */
+
+const API_BASE = "/api/categories";
+const ADMIN_BASE = "/api/categories/admin";
+
+/** Mapeia dados crus da API (numéricos) para o tipo ModelCategory (strings, datas válidas) */
+function mapApiToModel(c: { id: number; name: string; slug: string; position?: number }): ModelCategory {
+  const now = new Date().toISOString();
+  return {
+    id: String(c.id),
+    name: c.name,
+    slug: c.slug,
+    position: c.position ?? 0,
+    parentId: null,
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
-export async function updateCategory(id: string, input: Omit<CategoryUpsertInput, "id">) {
-  return upsertCategory({ ...input, id });
+
+export async function listCategories(): Promise<ModelCategory[]> {
+  const raw = await httpGet<Array<{ id: number; name: string; slug: string; position?: number }>>(`${API_BASE}`);
+  return (raw ?? []).map(mapApiToModel);
 }
+
+export async function getCategoryBySlug(slug: string): Promise<ModelCategory | null> {
+  const all = await listCategories();
+  const sl = slug.trim().toLowerCase();
+  return all.find((c) => c.slug.toLowerCase() === sl) ?? null;
+}
+
+export async function createCategory(payload: {
+  name: string;
+  slug: string;
+  position?: number;
+  parentId?: string | null;
+}): Promise<ModelCategory> {
+  const r = await httpPost<{ id: number; name: string; slug: string; position?: number }>(`${ADMIN_BASE}`, {
+    name: payload.name,
+    slug: payload.slug,
+    position: payload.position ?? 0,
+  });
+  return mapApiToModel(r);
+}
+
+export async function updateCategory(
+  id: string | number,
+  patch: Partial<{ name: string; slug: string; position?: number; parentId?: string | null }>
+): Promise<ModelCategory> {
+  const rid = Number(id);
+  const r = await httpPatch<{ id: number; name: string; slug: string; position?: number }>(`${ADMIN_BASE}/${rid}`, {
+    ...(patch.name !== undefined ? { name: patch.name } : {}),
+    ...(patch.slug !== undefined ? { slug: patch.slug } : {}),
+    ...(patch.position !== undefined ? { position: Number(patch.position) } : {}),
+  });
+  return mapApiToModel(r);
+}
+
+export async function upsertCategory(payload: {
+  id?: string | number;
+  name: string;
+  slug: string;
+  position?: number;
+  parentId?: string | null;
+}) {
+  if (payload.id && Number(payload.id) > 0) {
+    return updateCategory(payload.id, {
+      name: payload.name,
+      slug: payload.slug,
+      position: payload.position,
+      parentId: payload.parentId ?? null,
+    });
+  }
+  return createCategory({
+    name: payload.name,
+    slug: payload.slug,
+    position: payload.position,
+    parentId: payload.parentId ?? null,
+  });
+}
+
+export async function deleteCategory(id: string | number): Promise<void> {
+  await httpDelete<void>(`${ADMIN_BASE}/${Number(id)}`);
+}
+
+export async function reorderCategories(idsInOrder: Array<{ id: string | number; position: number }>|number[]): Promise<void> {
+  const ids =
+    Array.isArray(idsInOrder) && typeof (idsInOrder as any)[0] === "object"
+      ? (idsInOrder as Array<{ id: string | number; position: number }>)
+          .sort((a, b) => a.position - b.position)
+          .map((x) => Number(x.id))
+      : (idsInOrder as number[]).map((n) => Number(n));
+
+  await httpPut<void>(`${ADMIN_BASE}/reorder`, { ids });
+}
+
+export const CategoryRepository = {
+  listCategories,
+  getCategoryBySlug,
+  createCategory,
+  updateCategory,
+  upsertCategory,
+  deleteCategory,
+  reorderCategories,
+};
+
+export default CategoryRepository;

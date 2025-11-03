@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 type Props = { images: string[] };
 
 export function Gallery({ images }: Props) {
-  const safe = images.length ? images : ["/placeholder.jpg"];
+  const safe = useMemo(() => (images.length ? images : ["/assets/placeholder.jpg"]), [images]);
   const [current, setCurrent] = useState(0);
 
   return (
@@ -23,9 +23,9 @@ export function Gallery({ images }: Props) {
                 src={src}
                 alt={`Miniatura ${i + 1}`}
                 className="h-full w-full object-cover"
-                loading="lazy" decoding="async" fetchPriority="low"
-                srcSet={`${src}?w=160 160w, ${src}?w=320 320w`}
-                sizes="80px"
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
               />
             </button>
           );
@@ -39,9 +39,9 @@ export function Gallery({ images }: Props) {
             src={safe[current]}
             alt="Imagem do produto"
             className="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.02]"
-            loading="eager" decoding="async" fetchPriority="high"
-            srcSet={`${safe[current]}?w=640 640w, ${safe[current]}?w=960 960w, ${safe[current]}?w=1200 1200w`}
-            sizes="(max-width: 1024px) 90vw, 600px"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
           />
         </div>
 
@@ -60,9 +60,8 @@ export function Gallery({ images }: Props) {
                   src={src}
                   alt={`Miniatura ${i + 1}`}
                   className="h-full w-full object-cover"
-                  loading="lazy" decoding="async"
-                  srcSet={`${src}?w=160 160w, ${src}?w=320 320w`}
-                  sizes="22vw"
+                  loading="lazy"
+                  decoding="async"
                 />
               </button>
             );

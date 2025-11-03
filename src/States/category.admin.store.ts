@@ -7,16 +7,19 @@ import {
   reorderCategories,
 } from "@repo/category.repository";
 
-type UpsertInput = Omit<Category, "createdAt" | "updatedAt" | "slug"> & { id?: string; slug?: string };
+type UpsertInput = Omit<Category, "createdAt" | "updatedAt" | "slug"> & {
+  id?: number | string;
+  slug?: string;
+};
 
 type State = {
   items: Category[];
   loading: boolean;
   error?: string;
   fetch: () => Promise<void>;
-  createOrUpdate: (c: Partial<UpsertInput> & { name: string; id?: string }) => Promise<void>;
-  remove: (id: string) => Promise<void>;
-  reorder: (pairs: Array<{ id: string; position: number }>) => Promise<void>;
+  createOrUpdate: (c: Partial<UpsertInput> & { name: string; id?: number | string }) => Promise<void>;
+  remove: (id: number | string) => Promise<void>;
+  reorder: (pairs: Array<{ id: number | string; position: number }>) => Promise<void>;
 };
 
 export const useAdminCategories = create<State>((set, get) => ({
@@ -46,7 +49,7 @@ export const useAdminCategories = create<State>((set, get) => ({
   async remove(id) {
     set({ loading: true, error: undefined });
     try {
-      await deleteCategory(String(id));
+      await deleteCategory(id as any);
       await get().fetch();
     } catch (e: any) {
       set({ loading: false, error: e?.message || "Erro" });
@@ -54,9 +57,10 @@ export const useAdminCategories = create<State>((set, get) => ({
   },
 
   async reorder(pairs) {
-    // garante id:string para o repositório
-    const fixed = pairs.map(p => ({ id: String(p.id), position: Number(p.position) }));
-    await reorderCategories(fixed);
+    const ids = pairs
+      .sort((a, b) => a.position - b.position)
+      .map((p) => Number(p.id));
+    await reorderCategories(ids);
     await get().fetch();
   },
 }));
