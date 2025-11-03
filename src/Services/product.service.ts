@@ -1,37 +1,14 @@
 // src/Services/product.service.ts
-import type {
-  PagedResult,
-  Product,
-  ProductCreate,
-  ProductQuery,
-  ProductUpdate,
-} from "@/Model/product.model";
+import type { PagedResult, Product, ProductCreate, ProductQuery, ProductUpdate } from "@/Model/product.model";
+import { getProduct as repoGetProduct, listByCategory as repoListByCategory, listProducts as repoListAll, searchProducts as repoSearch } from "@/Repository/product.repository";
 
-import {
-  getProduct as repoGetProduct,
-  listByCategory as repoListByCategory,
-  listProducts as repoListAll,
-  searchProducts as repoSearch,
-} from "@/Repository/product.repository";
-
-// Base da API. Mantém default local para dev.
-const API_BASE = ((import.meta as any)?.env?.VITE_API_URL ?? "http://localhost:8080")
-  .toString()
-  .replace(/\/+$/, "");
-
+// Base da API com default local
+const API_BASE = ((import.meta as any)?.env?.VITE_API_URL ?? "http://localhost:8080").toString().replace(/\/+$/, "");
 const MEM_KEY = "mobiliario.admin.products";
 
 // ---------------- Persistência mock p/ dev sem API ----------------
-function loadMem(): Product[] {
-  try {
-    return JSON.parse(localStorage.getItem(MEM_KEY) || "[]") as Product[];
-  } catch {
-    return [];
-  }
-}
-function saveMem(list: Product[]) {
-  localStorage.setItem(MEM_KEY, JSON.stringify(list));
-}
+function loadMem(): Product[] { try { return JSON.parse(localStorage.getItem(MEM_KEY) || "[]") as Product[]; } catch { return []; } }
+function saveMem(list: Product[]) { localStorage.setItem(MEM_KEY, JSON.stringify(list)); }
 async function seedIfEmpty() {
   const cur = loadMem();
   if (cur.length === 0) {
@@ -48,38 +25,24 @@ async function seedIfEmpty() {
     saveMem(seeded);
   }
 }
-function genIdNumber(): number {
-  return Date.now() + Math.floor(Math.random() * 1000);
-}
+function genIdNumber(): number { return Date.now() + Math.floor(Math.random() * 1000); }
 void seedIfEmpty();
 
 // ---------------- Helper HTTP ----------------
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!API_BASE) throw new Error("API base URL ausente");
   const res = await fetch(`${API_BASE}${path}`, init);
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(txt || `HTTP ${res.status}`);
-  }
+  if (!res.ok) { const txt = await res.text().catch(() => ""); throw new Error(txt || `HTTP ${res.status}`); }
   return res.json() as Promise<T>;
 }
 
 // ================= Loja (read-only) =================
-/** Aceita id numérico OU slug. Nunca converte para número. */
 export async function getProduct(idOrSlug: string | number): Promise<Product | null> {
-  const param = encodeURIComponent(String(idOrSlug)); // evita NaN
-  if (API_BASE) {
-    // debug opcional:
-    // console.log("[getProduct] solicitando:", `/api/products/${param}`);
-    return http<Product | null>(`/api/products/${param}`);
-  }
+  const param = encodeURIComponent(String(idOrSlug));
+  if (API_BASE) return http<Product | null>(`/api/products/${param}`);
   const mem = loadMem();
   if (mem.length) {
     const key = String(idOrSlug).toLowerCase();
-    return (
-      mem.find((p: any) => String(p.id) === key || String(p.slug).toLowerCase() === key) ??
-      null
-    );
+    return mem.find((p: any) => String(p.id) === key || String(p.slug).toLowerCase() === key) ?? null;
   }
   return repoGetProduct(idOrSlug);
 }
@@ -88,13 +51,10 @@ export async function listByCategory(slug: string): Promise<Product[]> {
   const s = String(slug || "").trim();
   if (!s) return [];
   if (API_BASE) return http<Product[]>(`/api/products?cat=${encodeURIComponent(s)}`);
-
   const mem = loadMem();
   if (mem.length) {
     const k = s.toLowerCase();
-    return mem.filter(
-      (p: any) => String(p.categorySlug ?? p.categoryName ?? "").toLowerCase() === k
-    );
+    return mem.filter((p: any) => String(p.categorySlug ?? p.categoryName ?? "").toLowerCase() === k);
   }
   return repoListByCategory(s);
 }
@@ -110,7 +70,6 @@ export async function searchProducts(q: string): Promise<Product[]> {
   const s = q.trim();
   if (!s) return [];
   if (API_BASE) return http<Product[]>(`/api/products?q=${encodeURIComponent(s)}`);
-
   const mem = loadMem();
   if (mem.length) return mem.filter((p) => p.name.toLowerCase().includes(s.toLowerCase()));
   return repoSearch(s);
@@ -145,9 +104,7 @@ export const productService = {
           (p.tags ?? []).some((t: string) => t.toLowerCase().includes(k))
       );
     }
-    if (q.status && q.status !== "all") {
-      data = data.filter((p: any) => (p.status ?? "published") === q.status);
-    }
+    if (q.status && q.status !== "all") data = data.filter((p: any) => (p.status ?? "published") === q.status);
 
     if (q.sort) {
       const map: Record<string, (a: any, b: any) => number> = {
@@ -155,10 +112,7 @@ export const productService = {
         name_desc: (a, b) => b.name.localeCompare(a.name),
         price_asc: (a, b) => Number(a.price ?? 0) - Number(b.price ?? 0),
         price_desc: (a, b) => Number(b.price ?? 0) - Number(a.price ?? 0),
-        created_desc: (a, b) =>
-          String(b.updatedAt || b.createdAt || "").localeCompare(
-            String(a.updatedAt || a.createdAt || "")
-          ),
+        created_desc: (a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")),
       };
       data = [...data].sort(map[q.sort] ?? (() => 0));
     }
@@ -166,7 +120,6 @@ export const productService = {
     const total = data.length;
     const start = (page - 1) * pageSize;
     const pageData = data.slice(start, start + pageSize);
-
     return { data: pageData, total, page, pageSize };
   },
 
@@ -211,29 +164,18 @@ export const productService = {
   },
 
   async remove(id: number): Promise<void> {
-    if (API_BASE) {
-      await http<void>(`/api/admin/products/${id}`, { method: "DELETE" });
-      return;
-    }
+    if (API_BASE) { await http<void>(`/api/admin/products/${id}`, { method: "DELETE" }); return; }
     const list = loadMem().filter((p: any) => p.id !== id);
     saveMem(list);
   },
 
   async duplicate(id: number): Promise<Product> {
-    if (API_BASE) {
-      return http<Product>(`/api/admin/products/${id}/duplicate`, { method: "POST" });
-    }
+    if (API_BASE) return http<Product>(`/api/admin/products/${id}/duplicate`, { method: "POST" });
     const list = loadMem();
     const src = list.find((p: any) => p.id === id);
     if (!src) throw new Error("Produto não encontrado");
     const now = new Date().toISOString();
-    const copy: Product = {
-      ...(src as any),
-      id: genIdNumber(),
-      name: `${(src as any).name} (cópia)`,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const copy: Product = { ...(src as any), id: genIdNumber(), name: `${(src as any).name} (cópia)`, createdAt: now, updatedAt: now };
     list.unshift(copy);
     saveMem(list);
     return copy;

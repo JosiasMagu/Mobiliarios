@@ -20,13 +20,12 @@ import { adminRoutes } from "@routes/admin.routes";
 const router = createBrowserRouter([
   { path: "/", element: <Home /> },
   { path: "/c/:slug", element: <CategoryPage /> },
-  { path: "/p/:id", element: <ProductPage /> },
+  { path: "/p/:id", element: <ProductPage /> }, // aceita id ou slug
   { path: "/cart", element: <CartPage /> },
   { path: "/checkout", element: <CheckoutPage /> },
   { path: "/confirm/:id", element: <ConfirmationPage /> },
   { path: "/wishlist", element: <WishlistPage /> },
   { path: "/login", element: <LoginPage /> },
-
   {
     path: "/account",
     element: <RequireAuth />,
@@ -37,11 +36,9 @@ const router = createBrowserRouter([
     element: <RequireAuth />,
     children: [{ index: true, element: <OrderDetailPage /> }],
   },
-
   { path: "/sobre", element: <AboutPage /> },
   { path: "/contato", element: <ContactPage /> },
   { path: "/faq", element: <FAQPage /> },
-
   ...adminRoutes,
   { path: "*", element: <NotFound /> },
 ]);

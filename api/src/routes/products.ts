@@ -23,24 +23,21 @@ r.get("/", async (req, res) => {
   res.json(items);
 });
 
-// GET /api/products/:idOrSlug  -> aceita 123 ou "armario-deslizante"
+// api/src/routes/products.ts (trecho essencial)
 r.get("/:idOrSlug", async (req, res) => {
-  const param = String(req.params.idOrSlug);
-  const isId = /^\d+$/.test(param);
+  const idOrSlug = String(req.params.idOrSlug);
+  const where = /^\d+$/.test(idOrSlug)
+    ? { id: Number(idOrSlug) }
+    : { slug: idOrSlug };
 
   const product = await db.product.findUnique({
-    where: isId ? { id: Number(param) } : { slug: param.toLowerCase() },
+    where,
     include: { images: true, category: true },
   });
-
   if (!product) return res.status(404).json({ error: "not found" });
 
   const related = await db.product.findMany({
-    where: {
-      active: true,
-      categoryId: product.categoryId,
-      id: { not: product.id },
-    },
+    where: { active: true, categoryId: product.categoryId, id: { not: product.id } },
     include: { images: true },
     take: 8,
     orderBy: { id: "desc" },

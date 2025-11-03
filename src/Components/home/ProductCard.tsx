@@ -7,7 +7,7 @@ import { currency } from "@utils/currency";
 import { Stars } from "@utils/rating";
 import { useCartStore } from "@state/cart.store";
 
-const PLACEHOLDER = "/assets/placeholder.jpg";
+const PLACEHOLDER = "/placeholder.jpg";
 
 type Props = {
   p: Product;
@@ -16,15 +16,17 @@ type Props = {
 };
 
 function pickPrimary(p: Product): string {
-  if (p?.image) return String(p.image);
+  if ((p as any)?.imageRel) return String((p as any).imageRel);
+  if (Array.isArray((p as any)?.imagesRel) && (p as any).imagesRel[0]) return String((p as any).imagesRel[0]);
   if (Array.isArray(p?.images) && p.images[0]) return String(p.images[0]);
-  if (p?.imageRel) return String(p.imageRel);
+  if (p?.image) return String(p.image);
   return PLACEHOLDER;
 }
 
 function collectImages(p: Product): string[] {
   const out: string[] = [];
-  if (Array.isArray(p?.imagesRel)) out.push(...(p as any).imagesRel.map(String).filter(Boolean));
+  if (Array.isArray((p as any)?.imagesRel)) out.push(...(p as any).imagesRel.map(String).filter(Boolean));
+  if ((p as any)?.imageRel) out.push(String((p as any).imageRel));
   if (Array.isArray(p?.images)) out.push(...p.images.map(String).filter(Boolean));
   if (p?.image) out.push(String(p.image));
   return Array.from(new Set(out.filter(Boolean))).slice(0, 8);
@@ -44,7 +46,7 @@ export function ProductCard({ p, onAddCart, onAddWish }: Props) {
   const src = allImgs[Math.min(idx, allImgs.length - 1)] ?? PLACEHOLDER;
 
   const inStock = (p as any).inStock ?? Number((p as any).stock ?? 0) > 0;
-  const to = `/p/${p.slug || p.id}`;
+  const to = `/p/${(p as any).slug || (p as any).id}`;
 
   const [toast, setToast] = React.useState(false);
 
@@ -77,11 +79,8 @@ export function ProductCard({ p, onAddCart, onAddWish }: Props) {
             className="w-full h-56 object-cover"
             onError={(e) => {
               const imgEl = e.currentTarget as HTMLImageElement;
-              if (idx + 1 < allImgs.length) {
-                setIdx(idx + 1);
-              } else {
-                imgEl.src = PLACEHOLDER;
-              }
+              if (idx + 1 < allImgs.length) setIdx(idx + 1);
+              else imgEl.src = PLACEHOLDER;
             }}
           />
         </Link>
@@ -116,9 +115,7 @@ export function ProductCard({ p, onAddCart, onAddWish }: Props) {
           <h3 className="font-medium line-clamp-1 group-hover:underline">{p.name}</h3>
         </Link>
 
-        <div className="mt-1">
-          <Stars rating={(p as any).rating} />
-        </div>
+        <div className="mt-1"><Stars rating={(p as any).rating} /></div>
         <div className="text-xs text-slate-500">{(p as any).reviews ?? 0} avaliações</div>
 
         <div className="mt-2 flex items-baseline gap-2">

@@ -3,7 +3,7 @@ import React, { useMemo, useState } from "react";
 type Props = { images: string[] };
 
 export function Gallery({ images }: Props) {
-  const safe = useMemo(() => (images.length ? images : ["/assets/placeholder.jpg"]), [images]);
+  const safe = useMemo(() => (images.length ? images : ["/placeholder.jpg"]), [images]);
   const [current, setCurrent] = useState(0);
 
   return (
@@ -19,14 +19,7 @@ export function Gallery({ images }: Props) {
               className={`relative overflow-hidden rounded-lg border border-slate-200/40 bg-slate-50 aspect-square h-20 w-20 transition-colors ${active ? "ring-2 ring-blue-600" : "hover:border-slate-300/60"}`}
               aria-label={`Imagem ${i + 1}`}
             >
-              <img
-                src={src}
-                alt={`Miniatura ${i + 1}`}
-                className="h-full w-full object-cover"
-                loading="lazy"
-                decoding="async"
-                fetchPriority="low"
-              />
+              <img src={src} alt={`Miniatura ${i + 1}`} className="h-full w-full object-cover" loading="lazy" decoding="async" fetchPriority="low" />
             </button>
           );
         })}
@@ -56,13 +49,7 @@ export function Gallery({ images }: Props) {
                 className={`overflow-hidden rounded-lg border border-slate-200/40 bg-slate-50 aspect-square transition-colors ${active ? "ring-2 ring-blue-600" : "hover:border-slate-300/60"}`}
                 aria-label={`Imagem ${i + 1}`}
               >
-                <img
-                  src={src}
-                  alt={`Miniatura ${i + 1}`}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                />
+                <img src={src} alt={`Miniatura ${i + 1}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
               </button>
             );
           })}

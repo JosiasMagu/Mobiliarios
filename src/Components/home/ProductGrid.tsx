@@ -4,7 +4,7 @@ import type { Product } from "@model/product.model";
 import { X, Search } from "lucide-react";
 import { ProductCard } from "./ProductCard";
 
-const PLACEHOLDER = "/assets/placeholder.jpg";
+const PLACEHOLDER = "/placeholder.jpg";
 
 // ---- helpers locais ----
 function toStrArray(x: unknown): string[] {
@@ -18,22 +18,14 @@ function onlyLocal(u?: string | null): string | null {
 
 // Carrossel dentro da seção de produtos
 function SectionCarousel({ images }: { images: string[] }) {
-  const list = useMemo(
-    () => images.filter(Boolean),
-    [images]
-  );
+  const list = useMemo(() => images.filter(Boolean), [images]);
   const [i, setI] = useState(0);
   const timer = useRef<number | null>(null);
 
   useEffect(() => {
     if (!list.length) return;
-    timer.current = window.setInterval(
-      () => setI((x) => (x + 1) % list.length),
-      3000
-    ) as unknown as number;
-    return () => {
-      if (timer.current) window.clearInterval(timer.current);
-    };
+    timer.current = window.setInterval(() => setI((x) => (x + 1) % list.length), 3000) as unknown as number;
+    return () => { if (timer.current) window.clearInterval(timer.current); };
   }, [list.length]);
 
   const cur = list[i] || PLACEHOLDER;
@@ -42,7 +34,7 @@ function SectionCarousel({ images }: { images: string[] }) {
     <div className="relative w-full h-56 sm:h-64 md:h-72 overflow-hidden rounded-xl bg-slate-100 mt-8">
       <img
         key={cur}
-        src={cur}                 // usa direto, só local
+        src={cur}
         alt="Destaques"
         className="w-full h-full object-cover transition-opacity duration-700"
         loading="lazy"
@@ -51,12 +43,7 @@ function SectionCarousel({ images }: { images: string[] }) {
       {list.length > 1 && (
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
           {Array.from({ length: Math.min(list.length, 8) }).map((_, k) => (
-            <span
-              key={k}
-              className={`h-1.5 w-1.5 rounded-full ${
-                k === (i % Math.min(list.length, 8)) ? "bg-white" : "bg-white/60"
-              }`}
-            />
+            <span key={k} className={`h-1.5 w-1.5 rounded-full ${k === (i % Math.min(list.length, 8)) ? "bg-white" : "bg-white/60"}`} />
           ))}
         </div>
       )}
@@ -78,23 +65,18 @@ export function ProductGrid({
   onAddWish: (id: number) => void;
 }) {
   const q = searchQuery.trim().toLowerCase();
-  const filtered = q
-    ? list.filter((p: any) => String(p.name).toLowerCase().includes(q))
-    : list;
+  const filtered = q ? list.filter((p: any) => String(p.name).toLowerCase().includes(q)) : list;
 
   // imagens do carrossel da seção: SOMENTE locais resolvidas pelo repositório
   const carouselImgs = useMemo(() => {
     const pool: string[] = [];
-
     (list ?? []).forEach((p: any) => {
-      const rel = toStrArray(p.imagesRel);           // preferencial
-      const prim = onlyLocal(p.imageRel);            // primaria local
+      const rel = toStrArray(p.imagesRel);
+      const prim = onlyLocal(p.imageRel);
       const validRel = rel.map(onlyLocal).filter(Boolean) as string[];
-
       if (prim) pool.push(prim);
       pool.push(...validRel);
     });
-
     const uniq = Array.from(new Set(pool)).filter(Boolean);
     return (uniq.length ? uniq : [PLACEHOLDER]).slice(0, 20);
   }, [list]);
@@ -132,12 +114,7 @@ export function ProductGrid({
 
         <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {filtered.map((p) => (
-            <ProductCard
-              key={(p as any).id}
-              p={p}
-              onAddCart={onAddCart}
-              onAddWish={onAddWish}
-            />
+            <ProductCard key={(p as any).id} p={p} onAddCart={onAddCart} onAddWish={onAddWish} />
           ))}
         </div>
       </div>

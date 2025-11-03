@@ -1,93 +1,17 @@
 ﻿{
-    "Sofas":  [
-                  "ambo-ampeng-KEGGJPKxcSc-unsplash.jpg",
-                  "ansuman-mishra-5kza-6yGHnk-unsplash.jpg",
-                  "bence-balla-schottner-vFwjD8JLP4M-unsplash.jpg",
-                  "christian-kaindl-4uD9w-pxBTA-unsplash.jpg",
-                  "francesca-tosolini-9dyitA0YIHE-unsplash.jpg",
-                  "guven-gunes-Iy3GN4iPLW8-unsplash.jpg",
-                  "hal-gatewood-Vfml26Iy4mI-unsplash.jpg",
-                  "hutomo-abrianto-Q_fZcn8vlWY-unsplash.jpg",
-                  "inside-weather-Uxqlfigh6oE-unsplash.jpg",
-                  "kam-idris-U39FPHKfDu0-unsplash.jpg",
-                  "kam-idris-wF9NH87U-2E-unsplash.jpg",
-                  "katja-rooke-77JACslA8G0-unsplash.jpg",
-                  "kevin-shek-kcxZ-YUZ8VE-unsplash.jpg",
-                  "khloe-arledge-8Rz_RIyp5FM-unsplash.jpg",
-                  "marlon-corona-1tMc27CFUbA-unsplash.jpg",
-                  "naomi-hebert-2dcYhvbHV-M-unsplash.jpg",
-                  "nathan-fertig-FBXuXp57eM0-unsplash.jpg",
-                  "paul-weaver-nWidMEQsnAQ-unsplash.jpg",
-                  "phillip-goldsberry-fZuleEfeA1Q-unsplash.jpg",
-                  "sven-brandsma-jxbdO7YXL8Y-unsplash.jpg"
-              ],
-    "Armarios":  [
+    "Cama":  {
 
-                 ],
-    "Cadeiras":  [
-                     "daniil-silantev-1P6AnKDw6S8-unsplash.jpg",
-                     "dillon-mangum-9489sFfgk4c-unsplash.jpg",
-                     "eugene-chystiakov-3neSwyntbQ8-unsplash.jpg",
-                     "kam-idris-_HqHX3LBN18-unsplash.jpg",
-                     "kari-shea-AMyjxxLEHU4-unsplash.jpg",
-                     "kelly-miller-BL6XQLZeXpg-unsplash.jpg",
-                     "kelly-sikkema-Pvse_0mSm6Y-unsplash.jpg",
-                     "ruslan-bardash-4kTbAMRAHtQ-unsplash.jpg",
-                     "sam-moghadam-kvmdsTrGOBM-unsplash.jpg",
-                     "scopic-ltd-NLlWwR4d3qU-unsplash.jpg",
-                     "suchit-poojari-ljRiZl00n18-unsplash.jpg",
-                     "vincent-botta-J41ffLK_OSM-unsplash.jpg",
-                     "yu-carla-Or3zn5zbgzE-unsplash.jpg"
-                 ],
-    "Mesas":  [
-                  "abel-y-costa-jb-SMviXCjI-unsplash.jpg",
-                  "agata-create-drbP8A14AIY-unsplash.jpg",
-                  "alexander-kaufmann-Jyw0X4aELPo-unsplash.jpg",
-                  "andrej-lisakov-3A4XZUopCJA-unsplash.jpg",
-                  "bady-abbas-hi3SkqB9rMI-unsplash.jpg",
-                  "benjamin-voros-X63FTIZFbZo-unsplash.jpg",
-                  "david-kristianto-bf2tnFZEuTQ-unsplash.jpg",
-                  "george-desipris-WpLm6hix8i8-unsplash.jpg",
-                  "hannah-busing-nME9TubZtSo-unsplash.jpg",
-                  "hemanth-nirujogi-Ghxq6VXEgOM-unsplash.jpg",
-                  "hesam-link-ZPl1v83Im_I-unsplash.jpg",
-                  "jeffery-ho-TIN_Lh9-Y7g-unsplash.jpg",
-                  "juli-kosolapova-sYcdwaRj_-A-unsplash.jpg",
-                  "lee-campbell-YuIMhzOKofY-unsplash.jpg",
-                  "mark-farias-fkugMBhVf1c-unsplash.jpg",
-                  "mathieu-perrier-44OaWM_ObWk-unsplash.jpg",
-                  "mitchell-luo-L5JhsKIvw_U-unsplash.jpg",
-                  "oriento-S_ncR5Q41PI-unsplash.jpg",
-                  "redd-francisco-TUH6ytDBQ0s-unsplash.jpg",
-                  "ryan-yao-BDvCewlnbD8-unsplash.jpg",
-                  "suhyeon-choi-ehxwis6Ltxg-unsplash.jpg",
-                  "suhyeon-choi-yX1RlZpC8ZU-unsplash.jpg",
-                  "veronika-fitart-77cctx2YdM4-unsplash.jpg",
-                  "yolk-coworking-krakow-l_brMXgpJhk-unsplash.jpg"
-              ],
-    "Luminarias":  [
-                       "anne-nygard-qX2Z7-Or1_4-unsplash.jpg",
-                       "frames-for-your-heart-RHxg3ol8O9k-unsplash.jpg",
-                       "golden-horn-bridge-JjYpCtJ7GIs-unsplash.jpg",
-                       "ind-g04lWDLvrHk-unsplash.jpg",
-                       "james-orr-9B9w2vulk-M-unsplash.jpg",
-                       "jonathan-hunt-N9Mc99jCiUk-unsplash.jpg",
-                       "mia-swerbs-yZf4FuDqJg8-unsplash.jpg",
-                       "nielson-caetano-salmeron--GmKTdOTE6Q-unsplash.jpg",
-                       "paulina-milde-jachowska-cbuzy3s2ES4-unsplash.jpg",
-                       "pranit-bhujel-SO0tay9kpss-unsplash.jpg",
-                       "sies-kranen-4aZ60YsmQ10-unsplash.jpg",
-                       "steve-johnson-fgD2wYFtbFw-unsplash.jpg"
-                   ],
-    "Cama":  [
-                 "adly-hakim-i13bE-bJ0mE-unsplash.jpg",
-                 "alex-tyson--Yje_RMvYOM-unsplash.jpg",
-                 "alex-tyson-5JjP9pGtD2k-unsplash.jpg",
-                 "alex-tyson-ooxQsJEKqwU-unsplash.jpg",
-                 "deepal-tamang-buON61RS9fI-unsplash.jpg",
-                 "jonathan-borba-d7zpGLglvtE-unsplash.jpg",
-                 "marcus-loke-WQJvWU_HZFo-unsplash.jpg",
-                 "prydumano-design-5vPnA0qHAyM-unsplash.jpg",
-                 "slaapwijsheid-nl-CrsrS8eEERA-unsplash.jpg"
-             ]
+             },
+    "Sofas":  {
+
+              },
+    "Mesas":  {
+
+              },
+    "Luminarias":  {
+
+                   },
+    "Cadeiras":  {
+
+                 }
 }

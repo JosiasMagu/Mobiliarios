@@ -2,8 +2,7 @@
 import { httpGet } from "@/Utils/api";
 import type { Product as ModelProduct } from "@model/product.model";
 
-// Placeholder fixo
-const PLACEHOLDER = "/assets/placeholder.jpg";
+const PLACEHOLDER = "/placeholder.jpg";
 
 function categoryFolderName(slug: string): string {
   const s = String(slug || "").toLowerCase();
@@ -13,43 +12,30 @@ function categoryFolderName(slug: string): string {
     case "luminarias": return "Luminarias";
     case "mesas":      return "Mesas";
     case "sofas":      return "Sofas";
-    case "armarios":   return "Sofas"; // <— usa a pasta Sofas para “armarios”
+    case "armarios":   return "Armarios"; // temporário: usa Sofas até preencher Armarios
     default:           return s ? s.charAt(0).toUpperCase() + s.slice(1) : "Sofas";
   }
 }
 
 // -------- Índice de assets por categoria --------
-// Espera o ficheiro: /public/assets/_index.json
-// Formato:
-// {
-//   "Cadeiras": ["daniil-....jpg","dillon-....jpg", ...],
-//   "Cama": ["adly-hakim-....jpg", ...],
-//   "Luminarias": [...],
-//   "Mesas": [...],
-//   "Sofas": [...]
-// }
 type AssetsIndex = Record<string, string[]>;
 let assetsIndexCache: AssetsIndex | null = null;
 let assetsIndexPromise: Promise<AssetsIndex> | null = null;
 
+// em product.repository.ts
 async function loadAssetsIndex(): Promise<AssetsIndex> {
   if (assetsIndexCache) return assetsIndexCache;
-  if (!assetsIndexPromise) {
-    assetsIndexPromise = fetch("/assets/_index.json", { cache: "no-cache" })
-      .then(async (r) => (r.ok ? ((await r.json()) as AssetsIndex) : {}))
-      .catch(() => ({}))
-      .then((ix) => (assetsIndexCache = ix || {}));
-  }
-  return assetsIndexPromise;
+  const v = Date.now(); // cache-bust
+  const ix = await fetch(`/assets/_index.json?v=${v}`, { cache: "no-cache" })
+    .then(r => r.ok ? r.json() : {})
+    .catch(() => ({} as AssetsIndex));
+  assetsIndexCache = ix || {};
+  return assetsIndexCache;
 }
 
-// Hash determinístico simples do slug para distribuir pelos ficheiros
 function hashSlug(s: string): number {
-  let h = 2166136261 >>> 0; // FNV-1a 32-bit base
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
   return h >>> 0;
 }
 
@@ -73,13 +59,11 @@ function normalizeWithLocalImage(p: any, imgPath: string): ModelProduct {
     inStock: stock > 0,
     image: imgPath || PLACEHOLDER,
     images: [imgPath || PLACEHOLDER],
+    imageRel: imgPath || PLACEHOLDER,
+    imagesRel: [imgPath || PLACEHOLDER],
     categoryId: Number(p.categoryId ?? 0),
     category: p.category
-      ? {
-          id: Number(p.category.id),
-          slug: String(p.category.slug),
-          name: String(p.category.name),
-        }
+      ? { id: Number(p.category.id), slug: String(p.category.slug), name: String(p.category.name) }
       : undefined,
   };
   return out as ModelProduct;
@@ -89,7 +73,6 @@ function normalizeSync(p: any, ix: AssetsIndex): ModelProduct {
   const categorySlug = String(p?.category?.slug ?? "sofas").trim().toLowerCase();
   const productSlug  = String(p?.slug ?? String(p?.id ?? "")).trim().toLowerCase();
   const catFolder = categoryFolderName(categorySlug);
-
   const mainImg = pickFileForProduct(catFolder, productSlug, ix);
   return normalizeWithLocalImage(p, mainImg);
 }
@@ -105,7 +88,7 @@ export async function listProducts(): Promise<ModelProduct[]> {
 
 export async function getProduct(idOrSlug: string | number): Promise<ModelProduct | null> {
   const [raw, ix] = await Promise.all([
-    httpGet<any>(`/api/products/${idOrSlug}`),
+    httpGet<any>(`/api/products/${encodeURIComponent(String(idOrSlug))}`),
     loadAssetsIndex(),
   ]);
   const p = raw?.product ?? raw;
