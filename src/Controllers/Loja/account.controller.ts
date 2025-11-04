@@ -12,6 +12,23 @@ import {
 
 const CLIENT_AUTH_KEY = "client_auth_v1";
 const LEGACY_USER_KEY = "auth_user";
+const DEFAULT_TIMEOUT_MS = 3000;
+
+/** Resolve em até `ms`. Se estourar, retorna `fallback`. */
+async function withTimeout<T>(p: Promise<T>, ms = DEFAULT_TIMEOUT_MS, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    const timeoutPromise = new Promise<T>((resolve) => {
+      timer = setTimeout(() => resolve(fallback), ms);
+    });
+    const result = await Promise.race<T>([p, timeoutPromise]);
+    return result;
+  } finally {
+    if (timer !== null) {
+      clearTimeout(timer);
+    }
+  }
+}
 
 function readClientUser(): User | null {
   try {
@@ -69,22 +86,18 @@ export function useAccountController() {
 
       const key = (me?.email ?? "") || (me as any)?.id || "";
       if (!key) {
-        if (alive.current) {
-          setOrders([]); setAddresses([]); setPrefs({ marketing: false });
-        }
+        if (alive.current) { setOrders([]); setAddresses([]); setPrefs({ marketing: false }); }
         return;
       }
 
-      // Todas as chamadas tolerantes a erro
-      const results = await Promise.allSettled([
-        listMyOrders(key),
-        me?.email ? listAddresses(me.email) : Promise.resolve([]),
-        me?.email ? getPrefs(me.email) : Promise.resolve({ marketing: false }),
-      ]);
-
-      const ord = results[0].status === "fulfilled" ? results[0].value : [];
-      const addr = results[1].status === "fulfilled" ? results[1].value : [];
-      const pf   = results[2].status === "fulfilled" ? results[2].value : { marketing: false };
+      // chamadas com timeout e fallback
+      const ord  = await withTimeout(listMyOrders(key), DEFAULT_TIMEOUT_MS, []);
+      const addr = me?.email
+        ? await withTimeout(listAddresses(me.email), DEFAULT_TIMEOUT_MS, [])
+        : [];
+      const pf   = me?.email
+        ? await withTimeout(getPrefs(me.email), DEFAULT_TIMEOUT_MS, { marketing: false })
+        : { marketing: false };
 
       if (alive.current) {
         setOrders(ord || []);
@@ -111,7 +124,7 @@ export function useAccountController() {
       if (typeof anyAuth.update === "function") await anyAuth.update(next);
     } catch {}
     if (alive.current) setUser(next);
-    void refresh(); // carrega dados, com guards
+    void refresh();
     return true;
   }, [refresh]);
 
@@ -126,7 +139,7 @@ export function useAccountController() {
       setOrders([]);
       setAddresses([]);
       setPrefs({ marketing: false });
-      setLoading(false); // garante UI destrava
+      setLoading(false);
     }
   }, []);
 
@@ -147,19 +160,19 @@ export function useAccountController() {
 
   const saveAddressHandler = useCallback(async (a: any) => {
     if (!user?.email) return;
-    const next = await upsertAddress(user.email, a).catch(() => addresses);
+    const next = await withTimeout(upsertAddress(user.email, a), DEFAULT_TIMEOUT_MS, addresses);
     if (alive.current && next) setAddresses(next);
   }, [user, addresses]);
 
   const removeAddressHandler = useCallback(async (id: string) => {
     if (!user?.email) return;
-    const next = await deleteAddress(user.email, id).catch(() => addresses);
+    const next = await withTimeout(deleteAddress(user.email, id), DEFAULT_TIMEOUT_MS, addresses);
     if (alive.current && next) setAddresses(next);
   }, [user, addresses]);
 
   const updatePrefsHandler = useCallback(async (p: { marketing: boolean }) => {
     if (!user?.email) return;
-    const next = await savePrefs(user.email, p).catch(() => prefs);
+    const next = await withTimeout(savePrefs(user.email, p), DEFAULT_TIMEOUT_MS, prefs);
     if (alive.current && next) setPrefs(next);
   }, [user, prefs]);
 

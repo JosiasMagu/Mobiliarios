@@ -68,16 +68,19 @@ export default function AccountPage() {
           <span className="font-medium text-gray-700">Minha conta</span>
         </div>
 
-        <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 mb-6">Minha conta</h1>
+        <div className="flex items-center gap-3 mb-4">
+          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">Minha conta</h1>
+          {loading && <span className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 ring-1 ring-blue-200">Atualizando…</span>}
+        </div>
 
         <div className="mt-2 grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
           <aside className="rounded-xl border border-slate-200/40 bg-white p-4 shadow-sm">
             <nav className="grid gap-1">
-              <TabBtn label="Visão geral"   active={tab === "overview"}   onClick={() => setTab("overview")}   icon={<span className="w-5 h-5 grid place-items-center rounded-full bg-blue-100 text-blue-700">🏠</span>} />
+              <TabBtn label="Visão geral" active={tab === "overview"} onClick={() => setTab("overview")} icon={<span className="w-5 h-5 grid place-items-center rounded-full bg-blue-100 text-blue-700">🏠</span>} />
               <TabBtn label="Detalhes do perfil" active={tab === "profile"} onClick={() => setTab("profile")} icon={<UserIcon className="w-4 h-4" />} />
-              <TabBtn label="Endereços"     active={tab === "addresses"}  onClick={() => setTab("addresses")}  icon={<MapPin className="w-4 h-4" />} />
-              <TabBtn label="Pedidos"       active={tab === "orders"}     onClick={() => setTab("orders")}     icon={<Package className="w-4 h-4" />} />
-              <TabBtn label="Preferências"  active={tab === "prefs"}      onClick={() => setTab("prefs")}      icon={<Bell className="w-4 h-4" />} />
+              <TabBtn label="Endereços" active={tab === "addresses"} onClick={() => setTab("addresses")} icon={<MapPin className="w-4 h-4" />} />
+              <TabBtn label="Pedidos" active={tab === "orders"} onClick={() => setTab("orders")} icon={<Package className="w-4 h-4" />} />
+              <TabBtn label="Preferências" active={tab === "prefs"} onClick={() => setTab("prefs")} icon={<Bell className="w-4 h-4" />} />
               <div className="h-px bg-slate-200/60 my-2" />
               <button
                 onClick={() => { signOut(); nav("/login", { replace: true }); }}
@@ -89,9 +92,8 @@ export default function AccountPage() {
           </aside>
 
           <section className="space-y-6">
-            {loading && <Panel>Carregando…</Panel>}
-
-            {!loading && tab === "overview" && (
+            {/* NUNCA bloqueie o conteúdo por causa do loading */}
+            {tab === "overview" && (
               <div className="grid md:grid-cols-2 gap-6">
                 <Tile icon={<UserIcon className="w-4 h-4" />} title="Detalhes do perfil" subtitle="Editar" />
                 <Tile icon={<MapPin className="w-4 h-4" />} title="Endereços" subtitle="Adicionar novo" />
@@ -100,7 +102,7 @@ export default function AccountPage() {
               </div>
             )}
 
-            {!loading && tab === "profile" && (
+            {tab === "profile" && (
               <Panel className="max-w-2xl">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Perfil</h2>
                 <div className="grid gap-3">
@@ -118,7 +120,7 @@ export default function AccountPage() {
               </Panel>
             )}
 
-            {!loading && tab === "addresses" && (
+            {tab === "addresses" && (
               <div className="grid lg:grid-cols-2 gap-6">
                 <Panel>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Meus endereços</h2>
@@ -158,7 +160,7 @@ export default function AccountPage() {
               </div>
             )}
 
-            {!loading && tab === "orders" && (
+            {tab === "orders" && (
               <Panel>
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Meus pedidos</h2>
                 {orders.length === 0 ? (
@@ -182,7 +184,7 @@ export default function AccountPage() {
               </Panel>
             )}
 
-            {!loading && tab === "prefs" && (
+            {tab === "prefs" && (
               <Panel className="max-w-xl">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Preferências de comunicação</h2>
                 <label className="flex items-center gap-3 text-sm text-gray-700">
