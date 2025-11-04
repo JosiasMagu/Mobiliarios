@@ -12,6 +12,18 @@ type Props = {
   onSubmitUpdate: (id: number, payload: Partial<Product>) => void;
 };
 
+const PLACEHOLDER = "/assets/placeholder.jpg";
+function resolveImg(u?: string) {
+  if (!u) return PLACEHOLDER;
+  const s = String(u).trim();
+  if (!s) return PLACEHOLDER;
+  if (s.startsWith("data:") || s.startsWith("blob:")) return s;
+  if (/^https?:\/\//i.test(s)) return `/api/img?url=${encodeURIComponent(s)}`;
+  if (s.startsWith("/")) return s;
+  if (s.startsWith("assets/")) return `/${s}`;
+  return `/assets/${s}`;
+}
+
 export const ProductFormDialog: FC<Props> = ({
   open,
   editing,
@@ -273,9 +285,10 @@ export const ProductFormDialog: FC<Props> = ({
                   {images.map((u, i) => (
                     <div key={i} className="group relative">
                       <img
-                        src={u}
+                        src={resolveImg(u)}
                         alt=""
                         className="h-24 w-full object-cover rounded-lg ring-1 ring-slate-200"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = PLACEHOLDER; }}
                       />
                       <button
                         className="absolute top-1 right-1 hidden group-hover:inline-flex rounded-md bg-white/90 px-2 py-1 text-xs shadow ring-1 ring-slate-200"

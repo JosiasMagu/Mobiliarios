@@ -2,8 +2,9 @@
 import { httpGet } from "@/Utils/api";
 import type { Product as ModelProduct } from "@model/product.model";
 
-const PLACEHOLDER = "/placeholder.jpg";
+const PLACEHOLDER = "/assets/placeholder.jpg";
 
+/** slug de categoria (db em lower) -> pasta com inicial maiúscula */
 function categoryFolderName(slug: string): string {
   const s = String(slug || "").toLowerCase();
   switch (s) {
@@ -12,40 +13,76 @@ function categoryFolderName(slug: string): string {
     case "luminarias": return "Luminarias";
     case "mesas":      return "Mesas";
     case "sofas":      return "Sofas";
-    case "armarios":   return "Armarios"; // temporário: usa Sofas até preencher Armarios
-    default:           return s ? s.charAt(0).toUpperCase() + s.slice(1) : "Sofas";
+    case "armarios":   return "Armarios";
+    default:           return s ? s[0].toUpperCase() + s.slice(1) : "Sofas";
   }
 }
 
-// -------- Índice de assets por categoria --------
+/** Índice de assets por categoria. Arquivo: /assets/_index.json */
 type AssetsIndex = Record<string, string[]>;
 let assetsIndexCache: AssetsIndex | null = null;
-let assetsIndexPromise: Promise<AssetsIndex> | null = null;
+/** Mapa opcional slug-do-produto -> caminho relativo. Arquivo: /assets/_index_map.json */
+let assetMap: Record<string, string> | null = null;
 
-// em product.repository.ts
 async function loadAssetsIndex(): Promise<AssetsIndex> {
   if (assetsIndexCache) return assetsIndexCache;
-  const v = Date.now(); // cache-bust
-  const ix = await fetch(`/assets/_index.json?v=${v}`, { cache: "no-cache" })
-    .then(r => r.ok ? r.json() : {})
-    .catch(() => ({} as AssetsIndex));
+  const v = Date.now();
+  const [ix, map] = await Promise.all([
+    fetch(`/assets/_index.json?v=${v}`, { cache: "no-cache" })
+      .then((r) => (r.ok ? r.json() : {}))
+      .catch(() => ({} as AssetsIndex)),
+    fetch(`/assets/_index_map.json?v=${v}`, { cache: "no-cache" })
+      .then((r) => (r.ok ? r.json() : {}))
+      .catch(() => ({} as Record<string, string>)),
+  ]);
   assetsIndexCache = ix || {};
+  assetMap = map || {};
   return assetsIndexCache;
 }
 
+/** FNV-1a para distribuição determinística */
 function hashSlug(s: string): number {
   let h = 2166136261 >>> 0;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
   return h >>> 0;
 }
 
+/** slugify quando não há slug */
+function slugify(x: string): string {
+  return String(x || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+/** escolhe arquivo do produto com preferências: mapa -> pasta categoria -> fallback Sofas -> placeholder */
 function pickFileForProduct(catFolder: string, prodSlug: string, ix: AssetsIndex): string {
-  const list = ix[catFolder] || [];
+  // 1) mapeamento manual
+  if (assetMap && assetMap[prodSlug]) {
+    const rel = assetMap[prodSlug];
+    return rel.startsWith("/assets/") ? rel : `/assets/${rel}`;
+  }
+
+  // 2) pasta da categoria
+  let list = ix[catFolder] || [];
+
+  // 3) fallback global se categoria vazia
+  if (!list.length && ix["Sofas"]?.length) { catFolder = "Sofas"; list = ix["Sofas"]; }
+
   if (!list.length) return PLACEHOLDER;
+
+  // 4) escolhe determinístico; priorize .webp se existir par
   const idx = hashSlug(prodSlug) % list.length;
-  const filename = list[idx];
-  const rel = filename.startsWith("/") ? filename : `/assets/${catFolder}/${filename}`;
-  return rel;
+  let file = list[idx];
+
+  // se houver par .webp do mesmo nome base, usa .webp
+  const base = file.replace(/\.(jpe?g|png)$/i, "");
+  const candidateWebp = `${base}.webp`;
+  if (list.includes(candidateWebp)) file = candidateWebp;
+
+  return `/assets/${catFolder}/${file}`;
 }
 
 function normalizeWithLocalImage(p: any, imgPath: string): ModelProduct {
@@ -71,8 +108,13 @@ function normalizeWithLocalImage(p: any, imgPath: string): ModelProduct {
 
 function normalizeSync(p: any, ix: AssetsIndex): ModelProduct {
   const categorySlug = String(p?.category?.slug ?? "sofas").trim().toLowerCase();
-  const productSlug  = String(p?.slug ?? String(p?.id ?? "")).trim().toLowerCase();
   const catFolder = categoryFolderName(categorySlug);
+
+  const rawSlug = String(p?.slug ?? "").trim();
+  const byName = p?.name ? slugify(String(p.name)) : "";
+  const byId = p?.id != null ? String(p.id) : "";
+  const productSlug = (rawSlug || byName || byId || `item-${byId}`).toLowerCase();
+
   const mainImg = pickFileForProduct(catFolder, productSlug, ix);
   return normalizeWithLocalImage(p, mainImg);
 }
@@ -96,29 +138,13 @@ export async function getProduct(idOrSlug: string | number): Promise<ModelProduc
 }
 
 export async function listByCategory(slug: string): Promise<ModelProduct[]> {
-  const s = slug.trim();
-  if (!s) return [];
   const ix = await loadAssetsIndex();
-  try {
-    const raw = await httpGet<any[]>(`/api/products?cat=${encodeURIComponent(s)}`);
-    return (raw ?? []).map((p) => normalizeSync(p, ix));
-  } catch {
-    const all = await listProducts();
-    const sl = s.toLowerCase();
-    return all.filter((p: any) => String(p.category?.slug ?? "").toLowerCase() === sl);
-  }
+  const raw = await httpGet<any[]>(`/api/products?cat=${encodeURIComponent(slug)}`).catch(() => []);
+  return (raw ?? []).map((p) => normalizeSync(p, ix));
 }
 
 export async function searchProducts(q: string): Promise<ModelProduct[]> {
-  const s = q.trim();
-  if (!s) return [];
   const ix = await loadAssetsIndex();
-  try {
-    const raw = await httpGet<any[]>(`/api/products?q=${encodeURIComponent(s)}`);
-    return (raw ?? []).map((p) => normalizeSync(p, ix));
-  } catch {
-    const all = await listProducts();
-    const sl = s.toLowerCase();
-    return all.filter((p: any) => p.name?.toLowerCase().includes(sl));
-  }
+  const raw = await httpGet<any[]>(`/api/products?q=${encodeURIComponent(q)}`).catch(() => []);
+  return (raw ?? []).map((p) => normalizeSync(p, ix));
 }

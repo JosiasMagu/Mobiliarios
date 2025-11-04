@@ -11,7 +11,7 @@ r.get("/", async (req, res) => {
 
   const where: any = { active: true };
   if (q) where.name = { contains: q, mode: "insensitive" };
-  if (cat) where.category = { slug: cat }; // slug salvo em lower-case
+  if (cat) where.category = { slug: cat }; // slug em lower-case
 
   const items = await db.product.findMany({
     where,
@@ -20,10 +20,11 @@ r.get("/", async (req, res) => {
     orderBy: { id: "desc" },
   });
 
+  // Não altero dados do produto aqui. Front já normaliza imagens via /assets e /api/img.
   res.json(items);
 });
 
-// api/src/routes/products.ts (trecho essencial)
+// GET /api/products/:idOrSlug
 r.get("/:idOrSlug", async (req, res) => {
   const idOrSlug = String(req.params.idOrSlug);
   const where = /^\d+$/.test(idOrSlug)

@@ -7,7 +7,18 @@ import { currency } from "@utils/currency";
 import { Stars } from "@utils/rating";
 import { useCartStore } from "@state/cart.store";
 
-const PLACEHOLDER = "/placeholder.jpg";
+const PLACEHOLDER = "/assets/placeholder.jpg";
+
+function resolveImg(u?: string) {
+  if (!u) return PLACEHOLDER;
+  const s = String(u).trim();
+  if (!s) return PLACEHOLDER;
+  if (s.startsWith("data:") || s.startsWith("blob:")) return s;
+  if (/^https?:\/\//i.test(s)) return `/api/img?url=${encodeURIComponent(s)}`;
+  if (s.startsWith("/")) return s;
+  if (s.startsWith("assets/")) return `/${s}`;
+  return `/assets/${s}`;
+}
 
 type Props = {
   p: Product;
@@ -16,19 +27,19 @@ type Props = {
 };
 
 function pickPrimary(p: Product): string {
-  if ((p as any)?.imageRel) return String((p as any).imageRel);
-  if (Array.isArray((p as any)?.imagesRel) && (p as any).imagesRel[0]) return String((p as any).imagesRel[0]);
-  if (Array.isArray(p?.images) && p.images[0]) return String(p.images[0]);
-  if (p?.image) return String(p.image);
+  if ((p as any)?.imageRel) return resolveImg(String((p as any).imageRel));
+  if (Array.isArray((p as any)?.imagesRel) && (p as any).imagesRel[0]) return resolveImg(String((p as any).imagesRel[0]));
+  if (Array.isArray(p?.images) && p.images[0]) return resolveImg(String(p.images[0]));
+  if (p?.image) return resolveImg(String(p.image));
   return PLACEHOLDER;
 }
 
 function collectImages(p: Product): string[] {
   const out: string[] = [];
-  if (Array.isArray((p as any)?.imagesRel)) out.push(...(p as any).imagesRel.map(String).filter(Boolean));
-  if ((p as any)?.imageRel) out.push(String((p as any).imageRel));
-  if (Array.isArray(p?.images)) out.push(...p.images.map(String).filter(Boolean));
-  if (p?.image) out.push(String(p.image));
+  if (Array.isArray((p as any)?.imagesRel)) out.push(...(p as any).imagesRel.map((x: any) => resolveImg(String(x))).filter(Boolean));
+  if ((p as any)?.imageRel) out.push(resolveImg(String((p as any).imageRel)));
+  if (Array.isArray(p?.images)) out.push(...p.images.map((x: any) => resolveImg(String(x))).filter(Boolean));
+  if (p?.image) out.push(resolveImg(String(p.image)));
   return Array.from(new Set(out.filter(Boolean))).slice(0, 8);
 }
 

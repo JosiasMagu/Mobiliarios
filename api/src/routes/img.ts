@@ -1,6 +1,8 @@
 import { Router, Request, Response } from "express";
 import fs from "node:fs";
 import path from "node:path";
+import dns from "node:dns/promises";
+import net from "node:net";
 
 const router = Router();
 
@@ -11,12 +13,35 @@ const PNG_1x1 = Buffer.from(
 );
 
 // placeholder local (coloque um JPG aqui: api/public/placeholder.jpg)
-const FALLBACK_PATH = path.join(process.cwd(), "public", "placeholder.jpg");
+const PUBLIC_DIR = path.join(process.cwd(), "public");
+const FALLBACK_PATH = path.join(PUBLIC_DIR, "placeholder.jpg");
 
-// Qualquer coisa abaixo disso é suspeita de 1×1
-const MIN_BYTES = 1024;
+// mínimos e limites
+const MIN_BYTES = 1024;            // abaixo disso, consideramos inválido
+const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
-// ---------- helpers ----------
+// ---------- utils ----------
+function isPrivateIp(ip: string): boolean {
+  if (!net.isIP(ip)) return true; // se não reconhece, bloqueia
+  // IPv4
+  if (ip.startsWith("10.") || ip.startsWith("127.") || ip.startsWith("0.")
+    || ip.startsWith("169.254.") || ip.startsWith("172.16.") || ip.startsWith("172.17.")
+    || ip.startsWith("172.18.") || ip.startsWith("172.19.") || ip.startsWith("172.2")
+    || ip.startsWith("172.30.") || ip.startsWith("172.31.") || ip.startsWith("192.168.")) return true;
+  // IPv6 locais
+  if (ip === "::1" || ip.startsWith("fc") || ip.startsWith("fd") || ip.startsWith("fe80")) return true;
+  return false;
+}
+
+async function hostIsPublic(hostname: string): Promise<boolean> {
+  try {
+    const records = await dns.lookup(hostname, { all: true });
+    return records.every(r => !isPrivateIp(r.address));
+  } catch {
+    return false;
+  }
+}
+
 function sendFallback(res: Response) {
   try {
     if (fs.existsSync(FALLBACK_PATH)) {
@@ -34,7 +59,6 @@ function sendFallback(res: Response) {
 
 function okContentType(ct?: string | null) {
   if (!ct) return "image/jpeg";
-  // normaliza content-type de imagens comuns
   if (/image\/(avif|webp|jpeg|jpg|png|gif)/i.test(ct)) return ct;
   return "image/jpeg";
 }
@@ -42,15 +66,22 @@ function okContentType(ct?: string | null) {
 // ---------- route ----------
 // GET /api/img?url=<https_url>
 router.get("/", async (req: Request, res: Response) => {
-  const raw = String(req.query.url || "");
+  const raw = String(req.query.url || "").trim();
   if (!/^https?:\/\//i.test(raw)) return sendFallback(res);
+
+  let u: URL;
+  try { u = new URL(raw); } catch { return sendFallback(res); }
+  if (!["http:", "https:"].includes(u.protocol)) return sendFallback(res);
+
+  // SSRF hardening: só resolve hosts públicos
+  if (!(await hostIsPublic(u.hostname))) return sendFallback(res);
 
   // timeout simples
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
 
   try {
-    const r = await fetch(raw, {
+    const r = await fetch(u.toString(), {
       signal: controller.signal,
       redirect: "follow",
       headers: {
@@ -67,10 +98,12 @@ router.get("/", async (req: Request, res: Response) => {
 
     if (!r.ok || !r.body) return sendFallback(res);
 
-    // Se o servidor já informou content-length e for muito pequeno, aborta para fallback
+    // Content-Length declarado
     const lenHeader = r.headers.get("content-length");
-    if (lenHeader && Number(lenHeader) > 0 && Number(lenHeader) < MIN_BYTES) {
-      return sendFallback(res);
+    if (lenHeader) {
+      const n = Number(lenHeader);
+      if (n > 0 && n < MIN_BYTES) return sendFallback(res);
+      if (n > MAX_BYTES) return sendFallback(res);
     }
 
     const ct = okContentType(r.headers.get("content-type"));
@@ -78,11 +111,19 @@ router.get("/", async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "public, max-age=86400, immutable");
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
 
-    // Para poder validar tamanho real quando não há content-length, bufferiza
-    const buf = Buffer.from(await r.arrayBuffer());
-    if (!buf || buf.length < MIN_BYTES) {
-      return sendFallback(res);
+    // Bufferiza para validar tamanho efetivo quando não há content-length
+    const ab = await r.arrayBuffer();
+    const buf = Buffer.from(ab);
+    if (!buf || buf.length < MIN_BYTES || buf.length > MAX_BYTES) return sendFallback(res);
+
+    // ETag simples por tamanho+md5-like (aqui só tamanho e 1 xor rápido para ser barato)
+    const tag = `"w-${buf.length}-${(buf[0] ^ buf[Math.max(0, buf.length - 1)])}"`;
+    res.setHeader("ETag", tag);
+    if (req.headers["if-none-match"] === tag) {
+      res.statusCode = 304;
+      return res.end();
     }
+
     return res.end(buf);
   } catch {
     clearTimeout(timer);

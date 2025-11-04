@@ -2,6 +2,17 @@ import type { Testimonial } from "@model/testimonial.model";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Stars } from "@utils/rating";
 
+const PLACEHOLDER = "/assets/placeholder.jpg";
+function resolveImg(u?: string) {
+  if (!u) return PLACEHOLDER;
+  const s = String(u).trim();
+  if (!s) return PLACEHOLDER;
+  if (/^https?:\/\//i.test(s)) return `/api/img?url=${encodeURIComponent(s)}`;
+  if (s.startsWith("/")) return s;
+  if (s.startsWith("assets/")) return `/${s}`;
+  return `/assets/${s}`;
+}
+
 export function Testimonials({
   testimonials,
   current,
@@ -43,7 +54,12 @@ export function Testimonials({
               <div key={t.id} className="w-full md:w-1/3 shrink-0 px-2">
                 <div className="h-full rounded-xl border bg-white p-6">
                   <div className="flex items-center gap-3">
-                    <img src={t.avatar} alt={t.name} className="w-12 h-12 rounded-full object-cover" />
+                    <img
+                      src={resolveImg(t.avatar)}
+                      alt={t.name}
+                      className="w-12 h-12 rounded-full object-cover"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = PLACEHOLDER; }}
+                    />
                     <div>
                       <div className="font-medium">{t.name}</div>
                       <div className="text-xs text-slate-500">{t.location}</div>

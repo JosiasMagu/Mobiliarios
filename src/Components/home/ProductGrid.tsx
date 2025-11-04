@@ -4,19 +4,19 @@ import type { Product } from "@model/product.model";
 import { X, Search } from "lucide-react";
 import { ProductCard } from "./ProductCard";
 
-const PLACEHOLDER = "/placeholder.jpg";
+const PLACEHOLDER = "/assets/placeholder.jpg";
 
-// ---- helpers locais ----
 function toStrArray(x: unknown): string[] {
   return Array.isArray(x) ? (x.filter(Boolean) as unknown[]).map(String) : [];
 }
 function onlyLocal(u?: string | null): string | null {
   if (!u) return null;
   const s = String(u);
-  return s.startsWith("/assets/") ? s : null;
+  if (s.startsWith("/assets/")) return s;
+  if (s.startsWith("assets/")) return `/${s}`;
+  return null;
 }
 
-// Carrossel dentro da seção de produtos
 function SectionCarousel({ images }: { images: string[] }) {
   const list = useMemo(() => images.filter(Boolean), [images]);
   const [i, setI] = useState(0);
@@ -39,6 +39,7 @@ function SectionCarousel({ images }: { images: string[] }) {
         className="w-full h-full object-cover transition-opacity duration-700"
         loading="lazy"
         decoding="async"
+        onError={(e) => { (e.currentTarget as HTMLImageElement).src = PLACEHOLDER; }}
       />
       {list.length > 1 && (
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
@@ -67,7 +68,7 @@ export function ProductGrid({
   const q = searchQuery.trim().toLowerCase();
   const filtered = q ? list.filter((p: any) => String(p.name).toLowerCase().includes(q)) : list;
 
-  // imagens do carrossel da seção: SOMENTE locais resolvidas pelo repositório
+  // imagens do carrossel: somente locais
   const carouselImgs = useMemo(() => {
     const pool: string[] = [];
     (list ?? []).forEach((p: any) => {
@@ -112,6 +113,7 @@ export function ProductGrid({
           </div>
         </div>
 
+        {/* 4 cards no desktop; ajuste se quiser mais colunas */}
         <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {filtered.map((p) => (
             <ProductCard key={(p as any).id} p={p} onAddCart={onAddCart} onAddWish={onAddWish} />
