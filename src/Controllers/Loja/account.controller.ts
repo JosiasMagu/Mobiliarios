@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthService } from "../../Services/auth.service";
 import type { User } from "../../Services/auth.service";
 import { listMyOrders } from "../../Repository/order.repository";
@@ -45,44 +45,64 @@ export function useAccountController() {
   const [prefs, setPrefs] = useState<{ marketing: boolean }>({ marketing: false });
   const [loading, setLoading] = useState(true);
 
-  async function refresh() {
+  const alive = useRef(true);
+  useEffect(() => () => { alive.current = false; }, []);
+
+  // evita refresh concorrente
+  const refreshing = useRef(false);
+  const lastUserSig = useRef<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (refreshing.current) return;
+    refreshing.current = true;
     setLoading(true);
     try {
       let me: User | null = null;
       try { me = AuthService?.me?.() ?? null; } catch { me = null; }
       if (!me) me = readClientUser();
-      setUser(me);
+
+      const sig = me ? JSON.stringify({ id: (me as any).id, email: me.email, name: (me as any).name }) : "null";
+      if (sig !== lastUserSig.current) {
+        lastUserSig.current = sig;
+        if (alive.current) setUser(me);
+      }
 
       const key = (me?.email ?? "") || (me as any)?.id || "";
-      if (key) {
-        const ord = await listMyOrders(key);
-        setOrders(ord);
-
-        if (me?.email) {
-          const [addr, pf] = await Promise.all([
-            listAddresses(me.email).catch(() => []),
-            getPrefs(me.email).catch(() => ({ marketing: false })),
-          ]);
-          setAddresses(addr);
-          setPrefs(pf);
-        } else {
-          setAddresses([]);
-          setPrefs({ marketing: false });
+      if (!key) {
+        if (alive.current) {
+          setOrders([]); setAddresses([]); setPrefs({ marketing: false });
         }
-      } else {
-        setOrders([]);
-        setAddresses([]);
-        setPrefs({ marketing: false });
+        return;
       }
-    } finally { setLoading(false); }
-  }
 
-  useEffect(() => { void refresh(); }, []);
+      // Todas as chamadas tolerantes a erro
+      const results = await Promise.allSettled([
+        listMyOrders(key),
+        me?.email ? listAddresses(me.email) : Promise.resolve([]),
+        me?.email ? getPrefs(me.email) : Promise.resolve({ marketing: false }),
+      ]);
 
-  async function signIn(payload: Partial<User> & { email?: string | null }) {
+      const ord = results[0].status === "fulfilled" ? results[0].value : [];
+      const addr = results[1].status === "fulfilled" ? results[1].value : [];
+      const pf   = results[2].status === "fulfilled" ? results[2].value : { marketing: false };
+
+      if (alive.current) {
+        setOrders(ord || []);
+        setAddresses(addr || []);
+        setPrefs(pf || { marketing: false });
+      }
+    } finally {
+      refreshing.current = false;
+      if (alive.current) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const signIn = useCallback(async (payload: Partial<User> & { email?: string | null }) => {
     const next: User = {
       id: String(Date.now()),
-      name: payload.name ?? "Convidado",
+      name: (payload as any)?.name ?? "Convidado",
       email: payload.email ?? null,
     };
     writeSession(next);
@@ -90,25 +110,27 @@ export function useAccountController() {
       const anyAuth = AuthService as any;
       if (typeof anyAuth.update === "function") await anyAuth.update(next);
     } catch {}
-    setUser(next);
-    await refresh();
-  }
+    if (alive.current) setUser(next);
+    void refresh(); // carrega dados, com guards
+    return true;
+  }, [refresh]);
 
-  function signOut() { logout(); }
-
-  function logout() {
+  const signOut = useCallback(() => {
     try {
       const anyAuth = AuthService as any;
       if (typeof anyAuth.logout === "function") anyAuth.logout();
     } catch {}
     writeSession(null);
-    setUser(null);
-    setOrders([]);
-    setAddresses([]);
-    setPrefs({ marketing: false });
-  }
+    if (alive.current) {
+      setUser(null);
+      setOrders([]);
+      setAddresses([]);
+      setPrefs({ marketing: false });
+      setLoading(false); // garante UI destrava
+    }
+  }, []);
 
-  async function updateProfile(p: Partial<User>) {
+  const updateProfile = useCallback(async (p: Partial<User>) => {
     const me = user ?? readClientUser() ?? null;
     if (!me) return;
     const next: User = { ...me, ...p };
@@ -117,24 +139,29 @@ export function useAccountController() {
       if (typeof anyAuth.update === "function") await anyAuth.update(next);
       else writeSession(next);
     } catch { writeSession(next); }
-    setUser(next);
-  }
+    if (alive.current) {
+      setUser(next);
+      lastUserSig.current = JSON.stringify({ id: (next as any).id, email: next.email, name: (next as any).name });
+    }
+  }, [user]);
 
-  async function saveAddressHandler(a: any) {
+  const saveAddressHandler = useCallback(async (a: any) => {
     if (!user?.email) return;
-    const next = await upsertAddress(user.email, a);
-    setAddresses(next);
-  }
-  async function removeAddressHandler(id: string) {
+    const next = await upsertAddress(user.email, a).catch(() => addresses);
+    if (alive.current && next) setAddresses(next);
+  }, [user, addresses]);
+
+  const removeAddressHandler = useCallback(async (id: string) => {
     if (!user?.email) return;
-    const next = await deleteAddress(user.email, id);
-    setAddresses(next);
-  }
-  async function updatePrefsHandler(p: { marketing: boolean }) {
+    const next = await deleteAddress(user.email, id).catch(() => addresses);
+    if (alive.current && next) setAddresses(next);
+  }, [user, addresses]);
+
+  const updatePrefsHandler = useCallback(async (p: { marketing: boolean }) => {
     if (!user?.email) return;
-    const next = await savePrefs(user.email, p);
-    setPrefs(next);
-  }
+    const next = await savePrefs(user.email, p).catch(() => prefs);
+    if (alive.current && next) setPrefs(next);
+  }, [user, prefs]);
 
   return {
     user,
@@ -145,7 +172,7 @@ export function useAccountController() {
     signIn,
     signOut,
     updateProfile,
-    logout,
+    logout: signOut,
     refresh,
     saveAddress: saveAddressHandler,
     removeAddress: removeAddressHandler,

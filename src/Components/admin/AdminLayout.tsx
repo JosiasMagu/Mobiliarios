@@ -1,22 +1,28 @@
 import type { ReactNode } from "react";
-import { Link, Navigate } from "react-router-dom";
-import { useAdminAuth } from "@state/admin.auth.store";
+import { Link, Navigate, useLocation } from "react-router-dom";
+import { useAdminAuth } from "@/States/auth.store";
 import { LogOut, LayoutGrid, Package, Users, ShoppingBag } from "lucide-react";
 import AdminHeader from "./AdminHeader";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const auth = useAdminAuth();
+  const loc = useLocation();
 
   if (!auth.token) {
-    return <Navigate to="/admin/login" replace />;
+    const back = encodeURIComponent(loc.pathname + loc.search + loc.hash);
+    return <Navigate to={`/admin/login?back=${back}`} replace />;
   }
+
+  const displayName = auth.user?.name ?? "Administrador";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 h-full w-60 border-r border-slate-200 bg-white">
         <div className="h-16 px-4 flex items-center gap-3 border-b border-slate-200">
-          <div className="w-9 h-9 rounded-md bg-gradient-to-br from-blue-600 to-indigo-600 grid place-items-center text-white font-bold">M</div>
+          <div className="w-9 h-9 rounded-md bg-gradient-to-br from-blue-600 to-indigo-600 grid place-items-center text-white font-bold">
+            M
+          </div>
           <div className="font-extrabold tracking-tight">Mobiliário • Admin</div>
         </div>
         <nav className="p-3 space-y-1 text-sm">
@@ -36,7 +42,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-slate-200">
           <div className="text-xs text-slate-500 mb-2 px-1">Conectado como</div>
           <div className="px-3 py-2 rounded-md bg-slate-50 border border-slate-200/60 text-sm mb-2">
-            {auth.name ?? "Administrador"}
+            {displayName}
           </div>
           <button
             onClick={() => auth.signOut()}

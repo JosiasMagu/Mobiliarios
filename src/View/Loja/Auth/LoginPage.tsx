@@ -1,10 +1,11 @@
 // View/Loja/Auth/LoginPage.tsx
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAdminAuth } from "@/States/auth.store";
 
 export default function LojaLoginPage() {
   const nav = useNavigate();
+  const [sp] = useSearchParams();
   const { signIn, token } = useAdminAuth();
 
   const [email, setEmail] = useState("admin@demo.tld");
@@ -12,18 +13,24 @@ export default function LojaLoginPage() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Redireciona uma única vez quando token aparecer
+  const redirected = useRef(false);
   useEffect(() => {
-    if (token) nav("/");
-  }, [token, nav]);
+    if (!token || redirected.current) return;
+    redirected.current = true;
+    const back = sp.get("back") || "/";
+    nav(back, { replace: true });
+  }, [token, nav, sp]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
     setLoading(true);
     try {
-      await signIn(email, pwd);
+      const ok = await signIn(email, pwd);
       setLoading(false);
-      nav("/");
+      if (!ok) setErr("Credenciais inválidas.");
+      // não navegar aqui; deixa o efeito acima cuidar do redirect ao setar o token
     } catch (e: any) {
       setLoading(false);
       setErr(e?.message || "Falha no login");
@@ -42,6 +49,7 @@ export default function LojaLoginPage() {
           value={email}
           onChange={e=>setEmail(e.target.value)}
           autoComplete="email"
+          required
         />
         <input
           className="border rounded px-3 py-2 w-full"
@@ -50,8 +58,9 @@ export default function LojaLoginPage() {
           value={pwd}
           onChange={e=>setPwd(e.target.value)}
           autoComplete="current-password"
+          required
         />
-        <button disabled={loading} className="bg-black text-white rounded px-3 py-2 w-full">
+        <button disabled={loading} className="bg-black text-white rounded px-3 py-2 w-full disabled:opacity-50">
           {loading ? "Entrando…" : "Entrar"}
         </button>
       </form>

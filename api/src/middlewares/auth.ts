@@ -5,12 +5,12 @@ import jwt from "jsonwebtoken";
 export type JwtRole = "ADMIN" | "GERENTE" | "CLIENTE";
 export type JwtUser = { id: number; email: string; role: JwtRole; iat?: number; exp?: number };
 
+const JWT_SECRET = process.env.JWT_SECRET || "devsecret";
+
 function tokenFrom(req: Request) {
   const h = req.headers.authorization || "";
   return h.startsWith("Bearer ") ? h.slice(7) : null;
 }
-
-const JWT_SECRET = process.env.JWT_SECRET || "devsecret";
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const t = tokenFrom(req);
@@ -29,7 +29,7 @@ export function tryAuth(req: Request, _res: Response, next: NextFunction) {
     try {
       (req as any).user = jwt.verify(t, JWT_SECRET) as JwtUser;
     } catch {
-      // ignora token inválido em rotas públicas
+      // token inválido é ignorado em rotas públicas
     }
   }
   next();

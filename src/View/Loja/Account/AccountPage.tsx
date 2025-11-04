@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Navbar } from "@comp/home/Navbar";
 import { useCartStore } from "@state/cart.store";
 import { useUIStore } from "@state/ui.store";
@@ -7,41 +7,35 @@ import { useAccountController } from "@controller/Loja/account.controller";
 import { LogOut, Mail, User as UserIcon, MapPin, Heart, Bell, Package } from "lucide-react";
 
 type Tab = "overview" | "profile" | "addresses" | "orders" | "prefs";
-
-type AddressForm = {
-  provincia: string;
-  cidade: string;
-  bairro: string;
-  referencia: string;
-};
+type AddressForm = { provincia: string; cidade: string; bairro: string; referencia: string };
 
 export default function AccountPage() {
   const cart = useCartStore();
   const ui = useUIStore();
+  const nav = useNavigate();
   const { user, orders, addresses, prefs, loading, signOut, updateProfile, saveAddress, removeAddress, updatePrefs } =
     useAccountController();
 
   const [tab, setTab] = useState<Tab>("overview");
 
-  // Perfil
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const userName = useMemo(() => (user as any)?.name ?? "", [user]);
+  const userEmail = user?.email ?? "";
 
-  // Endereço
-  const [addr, setAddr] = useState<AddressForm>({
-    provincia: "",
-    cidade: "",
-    bairro: "",
-    referencia: "",
-  });
+  const [email, setEmail] = useState(userEmail);
+  const [name, setName] = useState(userName);
 
+  const lastUserId = useRef<string | number | null>(null);
   useEffect(() => {
-    if (user?.email) setEmail(user.email);
-    const uName = (user as any)?.name;
-    if (uName) setName(uName);
-  }, [user?.email, (user as any)?.name]);
+    const id = (user as any)?.id ?? null;
+    if (id !== lastUserId.current) {
+      lastUserId.current = id;
+      setEmail(userEmail || "");
+      setName(userName || "");
+    }
+  }, [user, userEmail, userName]);
 
-  // Segurança extra se o guard falhar
+  const [addr, setAddr] = useState<AddressForm>({ provincia: "", cidade: "", bairro: "", referencia: "" });
+
   if (!loading && !user) return <Navigate to="/login?back=/account" replace />;
 
   const setMenuOpen = (v: boolean) => {
@@ -77,23 +71,23 @@ export default function AccountPage() {
         <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 mb-6">Minha conta</h1>
 
         <div className="mt-2 grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
-          {/* Navegação lateral */}
           <aside className="rounded-xl border border-slate-200/40 bg-white p-4 shadow-sm">
             <nav className="grid gap-1">
-              <TabBtn label="Visão geral" active={tab === "overview"} onClick={() => setTab("overview")} icon={<span className="w-5 h-5 grid place-items-center rounded-full bg-blue-100 text-blue-700">🏠</span>} />
+              <TabBtn label="Visão geral"   active={tab === "overview"}   onClick={() => setTab("overview")}   icon={<span className="w-5 h-5 grid place-items-center rounded-full bg-blue-100 text-blue-700">🏠</span>} />
               <TabBtn label="Detalhes do perfil" active={tab === "profile"} onClick={() => setTab("profile")} icon={<UserIcon className="w-4 h-4" />} />
-              <TabBtn label="Endereços" active={tab === "addresses"} onClick={() => setTab("addresses")} icon={<MapPin className="w-4 h-4" />} />
-              <TabBtn label="Pedidos" active={tab === "orders"} onClick={() => setTab("orders")} icon={<Package className="w-4 h-4" />} />
-              <TabBtn label="Preferências" active={tab === "prefs"} onClick={() => setTab("prefs")} icon={<Bell className="w-4 h-4" />} />
-
+              <TabBtn label="Endereços"     active={tab === "addresses"}  onClick={() => setTab("addresses")}  icon={<MapPin className="w-4 h-4" />} />
+              <TabBtn label="Pedidos"       active={tab === "orders"}     onClick={() => setTab("orders")}     icon={<Package className="w-4 h-4" />} />
+              <TabBtn label="Preferências"  active={tab === "prefs"}      onClick={() => setTab("prefs")}      icon={<Bell className="w-4 h-4" />} />
               <div className="h-px bg-slate-200/60 my-2" />
-              <button onClick={() => signOut()} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-rose-600 hover:bg-rose-50">
+              <button
+                onClick={() => { signOut(); nav("/login", { replace: true }); }}
+                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
+              >
                 <LogOut className="w-4 h-4" /> Sair
               </button>
             </nav>
           </aside>
 
-          {/* Conteúdo */}
           <section className="space-y-6">
             {loading && <Panel>Carregando…</Panel>}
 
@@ -117,7 +111,7 @@ export default function AccountPage() {
                     <Mail className="w-4 h-4 text-gray-500" />
                     <input className="flex-1 rounded-md border border-slate-200/60 bg-white px-3 py-2 text-sm" value={email} onChange={(e) => setEmail(e.target.value)} />
                   </div>
-                  <button onClick={() => updateProfile({ name, email })} className="mt-4 w-fit rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 transition-colors">
+                  <button onClick={() => updateProfile({ name, email })} className="mt-4 w-fit rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5">
                     Salvar alterações
                   </button>
                 </div>
@@ -135,9 +129,7 @@ export default function AccountPage() {
                         <div className="text-sm text-gray-700">
                           {a.provincia}, {a.cidade} — {a.bairro}{a.referencia ? `, ref.: ${a.referencia}` : ""}
                         </div>
-                        <button onClick={() => removeAddress(a.id)} className="text-rose-600 hover:underline text-sm">
-                          Remover
-                        </button>
+                        <button onClick={() => removeAddress(a.id)} className="text-rose-600 hover:underline text-sm">Remover</button>
                       </div>
                     ))}
                   </div>
@@ -157,7 +149,7 @@ export default function AccountPage() {
                         await saveAddress(addr);
                         setAddr({ provincia: "", cidade: "", bairro: "", referencia: "" });
                       }}
-                      className="mt-1 w-fit rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 transition-colors"
+                      className="mt-1 w-fit rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5"
                     >
                       Salvar endereço
                     </button>
@@ -194,12 +186,7 @@ export default function AccountPage() {
               <Panel className="max-w-xl">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Preferências de comunicação</h2>
                 <label className="flex items-center gap-3 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={!!prefs.marketing}
-                    onChange={(e) => updatePrefs({ marketing: e.target.checked })}
-                    className="h-4 w-4 rounded border-slate-300"
-                  />
+                  <input type="checkbox" checked={!!prefs.marketing} onChange={(e) => updatePrefs({ marketing: e.target.checked })} className="h-4 w-4 rounded border-slate-300" />
                   Receber emails de ofertas e novidades
                 </label>
               </Panel>
@@ -211,11 +198,10 @@ export default function AccountPage() {
   );
 }
 
-/* ---------- UI helpers (clean) ---------- */
+/* ---------- UI helpers ---------- */
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-slate-200/40 bg-white p-6 shadow-sm ${className}`}>{children}</div>;
 }
-
 function Tile({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle?: string }) {
   return (
     <div className="rounded-xl border border-slate-200/40 bg-white p-5 shadow-sm">
@@ -229,25 +215,9 @@ function Tile({ icon, title, subtitle }: { icon: React.ReactNode; title: string;
     </div>
   );
 }
-
-function TabBtn({
-  label,
-  active,
-  onClick,
-  icon,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-}) {
+function TabBtn({ label, active, onClick, icon }: { label: string; active: boolean; onClick: () => void; icon: React.ReactNode }) {
   return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
-        active ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"
-      }`}
-    >
+    <button onClick={onClick} className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${active ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"}`}>
       {icon}
       {label}
     </button>

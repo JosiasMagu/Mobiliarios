@@ -13,11 +13,12 @@ export default function AdminLoginPage() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(()=> {
-    const unsub = subscribe(()=>{ if (isAdmin()) nav(sp.get("back") || "/admin", { replace: true }); });
-    if (isAdmin()) nav(sp.get("back") || "/admin", { replace: true });
-    return unsub;
-  }, []);
+  useEffect(() => {
+    const go = () => { if (isAdmin()) nav(sp.get("back") || "/admin", { replace: true }); };
+    const unsub = typeof subscribe === "function" ? subscribe(go) : undefined;
+    go();
+    return () => { if (typeof unsub === "function") unsub(); };
+  }, [isAdmin, nav, sp, subscribe]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
