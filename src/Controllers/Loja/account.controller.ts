@@ -1,3 +1,4 @@
+// src/Controllers/Account/account.controller.ts
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthService } from "../../Services/auth.service";
 import type { User } from "../../Services/auth.service";
@@ -39,10 +40,26 @@ function readClientUser(): User | null {
   } catch { return null; }
 }
 
-function writeSession(u: User | null) {
+/** Sessão robusta: tenta AuthService.session() e cai para client_auth_v1 */
+function readAnySession(): { token: string | null; user: User | null } {
+  try {
+    const s = (AuthService as any)?.session?.();
+    if (s && (s.token || s.user)) return { token: s.token ?? null, user: s.user ?? null };
+  } catch {}
+  try {
+    const raw = localStorage.getItem(CLIENT_AUTH_KEY);
+    if (raw) {
+      const v = JSON.parse(raw) as { token?: string | null; user?: User | null };
+      return { token: v?.token ?? null, user: (v?.user as User) ?? null };
+    }
+  } catch {}
+  return { token: null, user: null };
+}
+
+function writeSession(u: User | null, token?: string | null) {
   try {
     if (u) {
-      localStorage.setItem(CLIENT_AUTH_KEY, JSON.stringify({ token: "cli-" + Date.now(), user: u }));
+      localStorage.setItem(CLIENT_AUTH_KEY, JSON.stringify({ token: token ?? ("cli-" + Date.now()), user: u }));
       localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(u));
     } else {
       localStorage.removeItem(CLIENT_AUTH_KEY);
@@ -84,14 +101,19 @@ export function useAccountController() {
         if (alive.current) setUser(me);
       }
 
-      const key = (me?.email ?? "") || (me as any)?.id || "";
-      if (!key) {
+      // NOVO: obter token real
+      const sess = readAnySession();
+      const token = sess.token ?? "";
+
+      // Sem user => limpa visual
+      if (!me) {
         if (alive.current) { setOrders([]); setAddresses([]); setPrefs({ marketing: false }); }
         return;
       }
 
       // chamadas com timeout e fallback
-      const ord  = await withTimeout(listMyOrders(key), DEFAULT_TIMEOUT_MS, []);
+      // listMyOrders AGORA recebe token (antes recebia email/id)
+      const ord  = await withTimeout(listMyOrders(token), DEFAULT_TIMEOUT_MS, []);
       const addr = me?.email
         ? await withTimeout(listAddresses(me.email), DEFAULT_TIMEOUT_MS, [])
         : [];
@@ -113,6 +135,7 @@ export function useAccountController() {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const signIn = useCallback(async (payload: Partial<User> & { email?: string | null }) => {
+    // fluxo local/anon
     const next: User = {
       id: String(Date.now()),
       name: (payload as any)?.name ?? "Convidado",

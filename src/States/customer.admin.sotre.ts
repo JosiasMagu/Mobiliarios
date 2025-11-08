@@ -34,18 +34,23 @@ export const useAdminCustomers = create<Store>((set, get) => ({
   fetch: async () => {
     set({ loading: true });
 
-    // Deriva a base de clientes a partir dos pedidos em memória
-    const orders = listAllOrders();
+    const orders = await listAllOrders();
     const byEmail = new Map<
       string,
       { name?: string; orders: Order[]; spent: number }
     >();
 
     for (const o of orders) {
-      const key = (o.customer.email ?? o.customer.id ?? "").toLowerCase();
+      const oc: any = o;
+      const key = (oc.customer?.email ?? oc.customer?.id ?? "").toLowerCase();
       if (!key) continue;
-      const bucket = byEmail.get(key) ?? { name: o.customer.name, orders: [], spent: 0 };
-      bucket.name ||= o.customer.name;
+
+      // garante que 'orders' é Order[] e não 'never[]'
+      const bucket =
+        byEmail.get(key) ??
+        { name: oc.customer?.name, orders: [] as Order[], spent: 0 };
+
+      bucket.name ||= oc.customer?.name;
       bucket.orders.push(o);
       bucket.spent += o.total;
       byEmail.set(key, bucket);
@@ -70,18 +75,19 @@ export const useAdminCustomers = create<Store>((set, get) => ({
   },
 
   open: async (id: string) => {
-    const orders = listAllOrders();
-    // encontra pela store; fallback procurando pelo id no map derivado
+    const orders = await listAllOrders();
     const base = get().items.find((r) => r.profile.id === id);
     if (!base) return set({ current: null });
 
     const email = base.profile.email.toLowerCase();
-    const ownOrders = orders.filter(
-      (o) =>
-        (o.customer.email ?? "").toLowerCase() === email ||
-        (o.customer.id ?? "").toLowerCase() === email ||
-        (o.customer.id ?? "").toLowerCase() === base.profile.id
-    );
+    const ownOrders = orders.filter((o) => {
+      const oc: any = o;
+      return (
+        (oc.customer?.email ?? "").toLowerCase() === email ||
+        (oc.customer?.id ?? "").toLowerCase() === email ||
+        (oc.customer?.id ?? "").toLowerCase() === base.profile.id
+      );
+    });
 
     const [addresses, prefs] = await Promise.all([
       listAddresses(base.profile.email),

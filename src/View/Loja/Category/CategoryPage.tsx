@@ -60,7 +60,9 @@ export default function CategoryPage() {
       "/assets/placeholder.jpg";
     addItem({ productId: p.id as any, name: p.name, price: Number(p.price), image }, 1);
   };
-  const onAddWish = (id: number) => addWish(id);
+
+  // addWish do store aceita 0 argumentos (erro TS2554)
+  const onAddWish = (_id: number) => addWish();
 
   return (
     <div className="min-h-screen bg-gray-50">

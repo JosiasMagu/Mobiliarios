@@ -1,4 +1,5 @@
 import { Link, useLocation, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { Navbar } from "@comp/home/Navbar";
 import { useCartStore } from "@state/cart.store";
 import { useUIStore } from "@state/ui.store";
@@ -10,6 +11,15 @@ type LocState = {
   subtotal?: number;
   shippingCost?: number;
   items?: Array<{ id: string; name: string; qty: number; price: number; image?: string }>;
+};
+
+type ViewOrder = {
+  id?: string;
+  number?: string;
+  items: Array<{ productId: number; name: string; price: number; qty: number; image?: string }>;
+  subtotal: number;
+  shippingCost: number;
+  total: number;
 };
 
 export default function ConfirmationPage() {
@@ -30,45 +40,56 @@ export default function ConfirmationPage() {
     }
   };
 
-  const ord = (() => {
-    const fromState =
-      st.items && st.total != null
-        ? {
-            id,
-            number: st.orderRef || `#${id}`,
-            items: st.items.map((i) => ({
-              productId: Number(i.id),
-              name: i.name,
-              price: i.price,
-              qty: i.qty,
-              image: i.image,
-            })),
-            subtotal: st.subtotal ?? 0,
-            shippingCost: st.shippingCost ?? 0,
-            total: st.total ?? 0,
-          }
-        : null;
+  // preferir dados vindos do state da navegação
+  const fromState: ViewOrder | null = useMemo(() => {
+    if (st.items && st.total != null) {
+      return {
+        id,
+        number: st.orderRef || `#${id}`,
+        items: st.items.map((i) => ({
+          productId: Number(i.id),
+          name: i.name,
+          price: i.price,
+          qty: i.qty,
+          image: i.image,
+        })),
+        subtotal: st.subtotal ?? 0,
+        shippingCost: st.shippingCost ?? 0,
+        total: st.total ?? 0,
+      };
+    }
+    return null;
+  }, [id, st]);
 
-    if (fromState) return fromState;
+  const [ord, setOrd] = useState<ViewOrder | null>(fromState);
 
-    const o = id ? getOrder(id) : null;
-    if (!o) return null;
-
-    return {
-      id: o.id,
-      number: o.number,
-      items: o.items.map((i) => ({
-        productId: i.productId,
-        name: i.name,
-        price: i.price,
-        qty: i.qty,
-        image: i.image,
-      })),
-      subtotal: o.subtotal,
-      shippingCost: o.shippingCost,
-      total: o.total,
-    };
-  })();
+  useEffect(() => {
+    if (fromState || !id) return;
+    let alive = true;
+    (async () => {
+      try {
+        const o = await getOrder(id);
+        if (!alive || !o) return;
+        setOrd({
+          id: o.id,
+          number: o.number,
+          items: o.items.map((i: any) => ({
+            productId: i.productId,
+            name: i.name,
+            price: i.price,
+            qty: i.qty,
+            image: i.image,
+          })),
+          subtotal: o.subtotal,
+          shippingCost: o.shippingCost,
+          total: o.total,
+        });
+      } catch {
+        if (alive) setOrd(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [fromState, id]);
 
   return (
     <div className="min-h-screen bg-gray-50">

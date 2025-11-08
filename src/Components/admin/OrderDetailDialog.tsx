@@ -4,7 +4,6 @@ import { currency } from "@utils/currency";
 import type {
   Order as RepoOrder,
   OrderStatus,
-  PaymentKind,
   OrderAddress,
 } from "@repo/order.repository";
 
@@ -24,27 +23,25 @@ const statuses: { value: OrderStatus; label: string }[] = [
   { value: "cancelled", label: "Cancelado" },
 ];
 
-const payLabel: Record<PaymentKind, string> = {
+const payLabel: Record<string, string> = {
   mpesa: "M-Pesa",
-  emola: "eMola",
-  bank: "Conta bancária",
+  emola: "e-Mola",
+  cash: "Dinheiro",
   card: "Cartão",
-  boleto: "Boleto",
-  transfer: "Transferência",
   pix: "PIX",
+  transfer: "Transferência",
+  boleto: "Boleto",
 };
 
 function addrLine1(a: OrderAddress | undefined): string {
   if (!a) return "";
-  // Prioriza modelo “loja”
-  const loja = [a.bairro, a.cidade, a.provincia].filter(Boolean).join(", ");
-  // Fallback para modelo “legado”
+  const loja = [(a as any).bairro, (a as any).cidade, (a as any).provincia].filter(Boolean).join(", ");
   const legado = [a.street].filter(Boolean).join("");
   return loja || legado || "";
 }
 function addrLine2(a: OrderAddress | undefined): string {
   if (!a) return "";
-  const loja = [a.referencia].filter(Boolean).join("");
+  const loja = [(a as any).referencia].filter(Boolean).join("");
   const legado = [a.state, a.zip].filter(Boolean).join(" ");
   return loja || legado || "";
 }
@@ -52,15 +49,16 @@ function addrLine2(a: OrderAddress | undefined): string {
 const OrderDetailDialog: FC<Props> = ({ open, order, onClose, onUpdateStatus, onAddNote }) => {
   if (!open || !order) return null;
 
-  const pm = order.payment?.method ?? "card";
-  const history = order.history ?? [];
+  const o: any = order; // acesso a campos opcionais não previstos no tipo estrito
+  const pm = o.payment?.method ?? "card";
+  const history: Array<{ status: string; note?: string; at: string | number | Date }> = o.history ?? [];
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/20 p-3">
       <div className="w-full max-w-4xl max-h-[90vh] rounded-2xl bg-white shadow-lg ring-1 ring-slate-200/60 flex flex-col overflow-hidden">
         {/* header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200/60">
-          <div className="font-bold">Pedido {order.number || `#${order.id}`}</div>
+          <div className="font-bold">Pedido {o.number || `#${o.id}`}</div>
           <button onClick={onClose} className="rounded-md p-1 hover:bg-slate-50" title="Fechar">
             <X className="w-5 h-5" />
           </button>
@@ -73,19 +71,19 @@ const OrderDetailDialog: FC<Props> = ({ open, order, onClose, onUpdateStatus, on
             <div className="rounded-lg ring-1 ring-slate-200 p-3">
               <div className="text-xs text-slate-500">Cliente</div>
               <div className="font-medium">
-                {order.customer?.name || order.customer?.email || (order.customer?.guest ? "Convidado" : "-")}
+                {o.customer?.name || o.customer?.email || (o.customer?.guest ? "Convidado" : "-")}
               </div>
-              <div className="text-xs text-slate-500">{order.customer?.email || ""}</div>
+              <div className="text-xs text-slate-500">{o.customer?.email || ""}</div>
             </div>
             <div className="rounded-lg ring-1 ring-slate-200 p-3">
               <div className="text-xs text-slate-500">Entrega</div>
-              <div className="font-medium truncate">{addrLine1(order.address)}</div>
-              <div className="text-xs text-slate-500 truncate">{addrLine2(order.address)}</div>
+              <div className="font-medium truncate">{addrLine1(o.address)}</div>
+              <div className="text-xs text-slate-500 truncate">{addrLine2(o.address)}</div>
             </div>
             <div className="rounded-lg ring-1 ring-slate-200 p-3">
               <div className="text-xs text-slate-500">Pagamento</div>
-              <div className="font-medium">{payLabel[pm]}</div>
-              <div className="text-xs text-slate-500">Criado em {new Date(order.createdAt).toLocaleString()}</div>
+              <div className="font-medium">{payLabel[String(pm)] ?? String(pm).toUpperCase()}</div>
+              <div className="text-xs text-slate-500">Criado em {new Date(o.createdAt).toLocaleString()}</div>
             </div>
           </div>
 
@@ -101,7 +99,7 @@ const OrderDetailDialog: FC<Props> = ({ open, order, onClose, onUpdateStatus, on
                 </tr>
               </thead>
               <tbody>
-                {order.items.map((it, i) => (
+                {o.items.map((it: any, i: number) => (
                   <tr key={i} className="border-t border-slate-200/60">
                     <td className="px-4 py-2">{it.name}</td>
                     <td className="px-4 py-2">{it.qty}</td>
@@ -111,7 +109,7 @@ const OrderDetailDialog: FC<Props> = ({ open, order, onClose, onUpdateStatus, on
                 ))}
                 <tr className="border-t border-slate-200/60">
                   <td colSpan={3} className="px-4 py-2 text-right font-semibold">Total</td>
-                  <td className="px-4 py-2 text-right font-semibold">{currency(order.total)}</td>
+                  <td className="px-4 py-2 text-right font-semibold">{currency(o.total)}</td>
                 </tr>
               </tbody>
             </table>
@@ -122,7 +120,7 @@ const OrderDetailDialog: FC<Props> = ({ open, order, onClose, onUpdateStatus, on
             <div className="rounded-lg ring-1 ring-slate-200 p-3">
               <div className="text-sm font-medium mb-2">Atualizar Status</div>
               <select
-                defaultValue={order.status}
+                defaultValue={o.status}
                 onChange={(e) => onUpdateStatus(e.target.value as OrderStatus)}
                 className="w-full rounded-md ring-1 ring-slate-200 bg-white px-3 py-2 outline-none"
               >
@@ -155,7 +153,7 @@ const OrderDetailDialog: FC<Props> = ({ open, order, onClose, onUpdateStatus, on
           <div className="rounded-lg ring-1 ring-slate-200 p-3">
             <div className="text-sm font-medium mb-2">Histórico</div>
             <ul className="text-sm space-y-1">
-              {(history ?? []).slice().reverse().map((h, i) => (
+              {history.slice().reverse().map((h: {status: string; note?: string; at: any}, i: number) => (
                 <li key={i} className="flex items-center justify-between">
                   <span>
                     <span className="font-medium">

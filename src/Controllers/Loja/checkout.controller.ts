@@ -4,6 +4,17 @@ import { useCartStore } from "@state/cart.store";
 import { listShippingMethods } from "@service/shipping.service";
 import { processPayment } from "@service/payment.service";
 import { createOrder } from "@repo/order.repository";
+import type { PaymentKind } from "@repo/order.repository";
+import type { PaymentPayload } from "@service/payment.service";
+import { AuthService } from "@/Services/auth.service";
+
+type PayMethod = PaymentPayload["method"]; // "card" | "boleto" | "transfer" | "pix"
+
+/** Mapa para o tipo aceito pelo backend. Ajuste conforme sua API. */
+function mapPayToRepo(kind: PayMethod): PaymentKind {
+  // exemplo simples: tudo vira "bank"
+  return "bank";
+}
 
 export function useCheckoutController() {
   const cart = useCartStore();
@@ -23,7 +34,7 @@ export function useCheckoutController() {
   const [ship, setShip] = useState<"standard" | "express">("standard");
 
   // pagamento
-  const [pay, setPay] = useState<"card" | "boleto" | "transfer" | "pix">("card");
+  const [pay, setPay] = useState<PayMethod>("card");
 
   const shippingCost = useMemo(
     () => methods.find((m) => m.code === ship)?.cost ?? 0,
@@ -43,26 +54,28 @@ export function useCheckoutController() {
 
   async function submit(): Promise<{ ok: boolean; orderId?: string; error?: string }> {
     if (!valid) return { ok: false, error: "Preencha os campos obrigatórios." };
+
+    // 1) pagamento
     const payRes = await processPayment({ method: pay, amount: total });
     if (!payRes.ok) return { ok: false, error: "Pagamento recusado." };
 
-    const order = createOrder({
-      items: cart.items,
-      subtotal,
-      shippingMethod: ship,
-      shippingCost,
-      total,
-      customer: { email: guest ? undefined : email, guest },
-      address: { street, city, state, zip },
-      payment: { method: pay },
-    });
+    // 2) pedido
+    const token = AuthService.token() ?? undefined;
+    const order = await createOrder(
+      {
+        items: cart.items,
+        address: { street, state, zip }, // city pode ser agregado conforme seu backend
+        shippingMethod: ship,
+        paymentMethod: mapPayToRepo(pay),
+      },
+      token
+    );
 
     cart.clear();
     return { ok: true, orderId: order.id };
   }
 
   return {
-    // state
     email, setEmail, guest, setGuest,
     street, setStreet, city, setCity, state, setState, zip, setZip,
     ship, setShip, pay, setPay,

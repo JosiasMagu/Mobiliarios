@@ -13,6 +13,7 @@ type AuthState = {
 };
 
 const LS = "mobiliario:auth_v1";
+const CLIENT_AUTH_KEY = "client_auth_v1"; // compat para Account
 let listeners: Array<() => void> = [];
 
 function emit() { listeners.forEach(fn => fn()); }
@@ -23,8 +24,28 @@ function load(): { token: string|null; user: User|null } {
 export const auth: AuthState = {
   token: load().token ?? null,
   user: load().user ?? null,
-  setAuth(t, u) { this.token = t; this.user = u; localStorage.setItem(LS, JSON.stringify({ token:t, user:u })); emit(); },
-  clear() { this.token = null; this.user = null; localStorage.removeItem(LS); emit(); },
+  setAuth(t, u) {
+    this.token = t; this.user = u;
+    // fonte de verdade
+    localStorage.setItem(LS, JSON.stringify({ token:t, user:u }));
+    // COMPAT: espelha para o que Account lê
+    try {
+      localStorage.setItem(CLIENT_AUTH_KEY, JSON.stringify({ token: t, user: u }));
+      // legado comum em projetos: manter "auth_user" quando existir consumidor antigo
+      localStorage.setItem("auth_user", JSON.stringify(u));
+    } catch {}
+    emit();
+  },
+  clear() {
+    this.token = null; this.user = null;
+    localStorage.removeItem(LS);
+    // COMPAT: limpar espelhos
+    try {
+      localStorage.removeItem(CLIENT_AUTH_KEY);
+      localStorage.removeItem("auth_user");
+    } catch {}
+    emit();
+  },
   onChange(fn) { listeners.push(fn); return () => { listeners = listeners.filter(f => f!==fn); }; }
 };
 

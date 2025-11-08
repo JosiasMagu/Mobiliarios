@@ -1,3 +1,4 @@
+// src/Services/storage.service.ts
 export function getItem(key: string): string | null {
   try { return localStorage.getItem(key); } catch { return null; }
 }

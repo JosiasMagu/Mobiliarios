@@ -1,4 +1,3 @@
-import React from "react";
 import { Stars } from "@utils/rating";
 
 type Review = {

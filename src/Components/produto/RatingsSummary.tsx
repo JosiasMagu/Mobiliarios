@@ -1,4 +1,3 @@
-import React from "react";
 import { Stars } from "@utils/rating";
 
 export function RatingsSummary({ rating, reviews }: { rating: number; reviews: number }) {

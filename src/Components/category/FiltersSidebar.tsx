@@ -1,4 +1,3 @@
-  import React from "react";
 
   const COLOR_SWATCHES = ["#ffffff", "#111827", "#1e3a8a", "#dc2626", "#22c55e", "#f59e0b"] as const;
 

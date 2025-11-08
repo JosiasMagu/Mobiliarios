@@ -1,4 +1,3 @@
-import React from "react";
 import type { SortKey } from "@controller/Loja/category.controller";
 
 export function SortBar(props: {

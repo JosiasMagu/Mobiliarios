@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Navbar } from "@comp/home/Navbar";
 import { Footer } from "@comp/layout/footer";
@@ -6,10 +7,51 @@ import { useUIStore } from "@state/ui.store";
 import { getOrder } from "@repo/order.repository";
 import { currency } from "@utils/currency";
 
+type ViewOrder = {
+  id: string;
+  number?: string;
+  createdAt: string;
+  items: Array<{ productId: number; image?: string; name: string; qty: number; price: number }>;
+  address?: any;
+  shippingMethod?: string;
+  payment: { method: string };
+  subtotal: number;
+  shippingCost: number;
+  total: number;
+};
+
 export default function OrderDetailPage() {
   const { id = "" } = useParams();
-  const o = getOrder(id);
-  const cart = useCartStore(); const ui = useUIStore();
+  const cart = useCartStore();
+  const ui = useUIStore();
+
+  const [o, setO] = useState<ViewOrder | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await getOrder(id);
+        if (!alive || !res) return setO(null);
+        const r: any = res;
+        setO({
+          id: r.id,
+          number: r.number,
+          createdAt: r.createdAt,
+          items: r.items,
+          address: r.address,
+          shippingMethod: r.shippingMethod,
+          payment: r.payment ?? { method: "card" },
+          subtotal: r.subtotal ?? 0,
+          shippingCost: r.shippingCost ?? 0,
+          total: r.total ?? 0,
+        });
+      } catch {
+        if (alive) setO(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [id]);
 
   const setMenuOpenProp = (v: boolean) => {
     const anyStore = ui as any; const isOpen = !!ui.menuOpen;
@@ -18,11 +60,12 @@ export default function OrderDetailPage() {
   };
 
   const addr = o?.address;
-  const addrLine = addr
-    ? addr.provincia || addr.cidade || addr.bairro
+  const addrLine = useMemo(() => {
+    if (!addr) return "";
+    return addr.provincia || addr.cidade || addr.bairro
       ? `${addr.provincia ?? ""}${addr.cidade ? `, ${addr.cidade}` : ""}${addr.bairro ? `, ${addr.bairro}` : ""}${addr.referencia ? ` · ref.: ${addr.referencia}` : ""}`
-      : `${addr.street ?? ""}${addr.city ? `, ${addr.city}` : ""}${addr.state ? ` - ${addr.state}` : ""}${addr.zip ? ` · ${addr.zip}` : ""}`
-    : "";
+      : `${addr.street ?? ""}${addr.city ? `, ${addr.city}` : ""}${addr.state ? ` - ${addr.state}` : ""}${addr.zip ? ` · ${addr.zip}` : ""}`;
+  }, [addr]);
 
   const shipLabel =
     o?.shippingMethod === "express" ? "Expresso" :
@@ -82,7 +125,7 @@ export default function OrderDetailPage() {
                 <div className="rounded-lg border border-slate-200/40 p-3">
                   <div className="text-sm"><span className="text-slate-600">Endereço:</span> {addrLine || "—"}</div>
                   <div className="text-sm mt-1"><span className="text-slate-600">Envio:</span> {shipLabel}</div>
-                  <div className="text-sm mt-1"><span className="text-slate-600">Pagamento:</span> {o.payment.method.toUpperCase()}</div>
+                  <div className="text-sm mt-1"><span className="text-slate-600">Pagamento:</span> {(o.payment?.method ?? "card").toUpperCase()}</div>
                 </div>
 
                 <div className="rounded-lg border border-slate-200/40 p-3 space-y-1">

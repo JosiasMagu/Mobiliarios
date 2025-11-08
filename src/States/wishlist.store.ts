@@ -16,7 +16,7 @@ type WishlistState = {
 
 const KEY = "wishlist.v1";
 
-export const useWishlistStore = create<WishlistState>((set, get) => ({
+export const useWishlistStore = create<WishlistState>((set, _get) => ({
   items: [],
   add: (i) =>
     set((s) => (s.items.some((x) => x.productId === i.productId) ? s : { items: [...s.items, i] })),

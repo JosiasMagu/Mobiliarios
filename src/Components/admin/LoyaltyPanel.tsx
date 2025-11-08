@@ -20,7 +20,7 @@ const LoyaltyPanel: FC<Props> = ({ data, onSave, onDelete }) => {
         </button>
       </div>
       <div className="grid gap-3">
-        {data.map((t, idx) => (
+  {data.map((t, _idx) => (
           <div key={t.id} className="grid sm:grid-cols-4 gap-2 items-center rounded-lg ring-1 ring-slate-200 p-3">
             <input
               defaultValue={t.name}

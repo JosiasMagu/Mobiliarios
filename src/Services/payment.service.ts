@@ -4,7 +4,7 @@ export type PaymentPayload = {
   amount: number;
 };
 
-export async function processPayment(p: PaymentPayload) {
+export async function processPayment(_p: PaymentPayload) {
   await new Promise((r) => setTimeout(r, 600));
   return { ok: true, tid: "T" + Math.floor(Math.random() * 1e8) };
 }

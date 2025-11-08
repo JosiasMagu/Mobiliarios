@@ -40,7 +40,9 @@ const OrderTable: FC<Props> = ({ data, loading, onOpen }) => {
             ) : data.map(o => (
               <tr key={o.id} className="border-t border-slate-200/60">
                 <td className="px-4 py-3">{o.number}</td>
-                <td className="px-4 py-3">{o.customer.name || o.customer.email || "Convidado"}</td>
+                <td className="px-4 py-3">
+                  {(o as any)?.customer?.name || (o as any)?.customer?.email || "Convidado"}
+                </td>
                 <td className="px-4 py-3">{new Date(o.createdAt).toLocaleDateString()}</td>
                 <td className="px-4 py-3">
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusChip[o.status]}`}>

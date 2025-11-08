@@ -1,13 +1,10 @@
 // src/Utils/reporting.ts
-// Utilitários de relatórios — agregações sobre pedidos e produtos
-
 import { listAllOrders, type Order } from "@repo/order.repository";
 import { listProducts } from "@repo/product.repository";
 import type { Product } from "@model/product.model";
 
-/* ------------------------------- Tipagens -------------------------------- */
 export type Period = { from: Date; to: Date };
-export type DateRange = Period; // alias para compatibilidade
+export type DateRange = Period;
 
 export type SalesBucket = { label: string; total: number; count: number };
 
@@ -31,7 +28,6 @@ export type StockRow = {
   stockQty?: number;
 };
 
-/* ------------------------------- Helpers --------------------------------- */
 function within(o: Order, p: Period): boolean {
   const t = new Date(o.createdAt).getTime();
   return t >= p.from.getTime() && t <= p.to.getTime();
@@ -39,27 +35,26 @@ function within(o: Order, p: Period): boolean {
 
 function weekKey(d: Date): string {
   const t = new Date(d);
-  const day = t.getDay(); // 0..6
-  t.setDate(t.getDate() - day); // início da semana
+  const day = t.getDay();
+  t.setDate(t.getDate() - day);
   t.setHours(0, 0, 0, 0);
-  return `W-${t.toISOString().slice(0, 10)}`; // W-YYYY-MM-DD
+  return `W-${t.toISOString().slice(0, 10)}`;
 }
 
-/* ------------------------------ Relatórios ------------------------------- */
-
 /** Vendas por período, agregadas por dia/semana/mês. */
-export function salesByPeriod(
+export async function salesByPeriod(
   period: Period,
   granularity: "day" | "week" | "month" = "day"
-): SalesBucket[] {
-  const orders = listAllOrders().filter(o => within(o, period));
+): Promise<SalesBucket[]> {
+  const all = await listAllOrders();
+  const orders = all.filter((o: Order) => within(o, period));
 
   const keyOf = (d: Date) =>
     granularity === "day"
-      ? d.toISOString().slice(0, 10) // YYYY-MM-DD
+      ? d.toISOString().slice(0, 10)
       : granularity === "week"
       ? weekKey(d)
-      : d.toISOString().slice(0, 7); // YYYY-MM
+      : d.toISOString().slice(0, 7);
 
   const map = new Map<string, { total: number; count: number }>();
   for (const o of orders) {
@@ -76,8 +71,9 @@ export function salesByPeriod(
 }
 
 /** Produtos mais vendidos no período. */
-export function topSellingProducts(period: Period, limit = 10): TopProduct[] {
-  const orders = listAllOrders().filter(o => within(o, period));
+export async function topSellingProducts(period: Period, limit = 10): Promise<TopProduct[]> {
+  const all = await listAllOrders();
+  const orders = all.filter((o: Order) => within(o, period));
   const map = new Map<number, TopProduct>();
 
   for (const o of orders) {
@@ -97,25 +93,26 @@ export function topSellingProducts(period: Period, limit = 10): TopProduct[] {
 }
 
 /** Novos x recorrentes no período. */
-export function customerReport(period: Period): CustomerReport {
-  const orders = listAllOrders();
+export async function customerReport(period: Period): Promise<CustomerReport> {
+  const orders = await listAllOrders();
 
-  // primeira compra por cliente
-  const firstByKey = new Map<string, number>(); // key -> epoch
+  const firstByKey = new Map<string, number>();
   for (const o of orders) {
-    const key = (o.customer.email ?? o.customer.id ?? "").toLowerCase();
+    const oc: any = o;
+    const key = (oc.customer?.email ?? oc.customer?.id ?? "").toLowerCase();
     if (!key) continue;
     const t = new Date(o.createdAt).getTime();
     const prev = firstByKey.get(key);
     if (prev == null || t < prev) firstByKey.set(key, t);
   }
 
-  const inPeriod = orders.filter(o => within(o, period));
+  const inPeriod = orders.filter((o) => within(o, period));
   let newCustomers = 0;
   let returningCustomers = 0;
 
   for (const o of inPeriod) {
-    const key = (o.customer.email ?? o.customer.id ?? "").toLowerCase();
+    const oc: any = o;
+    const key = (oc.customer?.email ?? oc.customer?.id ?? "").toLowerCase();
     if (!key) continue;
     const first = firstByKey.get(key);
     if (first == null) continue;
@@ -127,28 +124,20 @@ export function customerReport(period: Period): CustomerReport {
     }
   }
 
-  return {
-    newCustomers,
-    returningCustomers,
-    totalCustomers: newCustomers + returningCustomers,
-  };
+  return { newCustomers, returningCustomers, totalCustomers: newCustomers + returningCustomers };
 }
 
 /** Relatório de estoque atual. */
 export async function stockReport(): Promise<StockRow[]> {
   const products: Product[] = await listProducts();
-  return products.map(p => ({
+  return products.map((p) => ({
     id: Number(p.id),
     name: p.name,
     inStock: Boolean(p.inStock),
-    stockQty:
-      (p as any).stockQty != null
-        ? Number((p as any).stockQty)
-        : undefined,
+    stockQty: (p as any).stockQty != null ? Number((p as any).stockQty) : undefined,
   }));
 }
 
-/* ------------------------------ Períodos --------------------------------- */
 export function lastNDays(n: number): Period {
   const to = new Date();
   const from = new Date(to);
