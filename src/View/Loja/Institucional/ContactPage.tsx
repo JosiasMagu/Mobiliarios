@@ -128,7 +128,7 @@ export default function ContactPage() {
               <p className="font-medium text-slate-700">Telefone/WhatsApp</p>
               <p>+258 84 000 0000</p>
               <p className="mt-2 font-medium text-slate-700">Email</p>
-              <p>suporte@mobicasa.co.mz</p>
+              <p>suporte@mobiliarte.co.mz</p>
               <p className="mt-2 font-medium text-slate-700">Endereço</p>
               <p>Beira, Sofala — Moçambique</p>
             </div>

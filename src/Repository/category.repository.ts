@@ -1,4 +1,3 @@
-// src/Repository/category.repository.ts
 import {
   httpDelete,
   httpGet,
@@ -9,12 +8,8 @@ import {
 import type { Category as ModelCategory } from "@model/category.model";
 import { buildLocalImagesFor } from "@/Utils/img";
 
-/* =========================================================
-   PRODUTOS (mantidos para compat em páginas que usam ambos)
-   ========================================================= */
-
+/* ===== Produtos (mantido para compat) ===== */
 export type ApiImage = string | { id?: number; url?: string; thumbUrl?: string };
-
 export type ApiProduct = {
   id: number | string;
   name: string;
@@ -82,30 +77,40 @@ export function normalizeProduct(p: ApiProduct) {
   };
 }
 
-/* ============================
-   CATEGORIES (alinhado ao Model)
-   ============================ */
+/* ===== Categorias ===== */
+
+export function slugify(s: string): string {
+  return (s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
 
 const API_BASE = "/api/categories";
 const ADMIN_BASE = "/api/categories/admin";
 
-/** Mapeia dados crus da API (numéricos) para o tipo ModelCategory (strings, datas válidas) */
-function mapApiToModel(c: { id: number; name: string; slug: string; position?: number }): ModelCategory {
+/** converte um item cru em ModelCategory, tolerante a campos ausentes */
+function mapApiToModel(c: any): ModelCategory {
   const now = new Date().toISOString();
   return {
     id: String(c.id),
-    name: c.name,
-    slug: c.slug,
-    position: c.position ?? 0,
-    parentId: null,
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
+    name: String(c.name),
+    slug: String(c.slug),
+    position: Number(c.position ?? 0),
+    parentId: c.parentId != null ? String(c.parentId) : null,
+    isActive: c.isActive != null ? Boolean(c.isActive) : true,
+    image: c.image ?? undefined,
+    icon: c.icon ?? undefined,
+    createdAt: c.createdAt ? String(c.createdAt) : now,
+    updatedAt: c.updatedAt ? String(c.updatedAt) : now,
   };
 }
 
 export async function listCategories(): Promise<ModelCategory[]> {
-  const raw = await httpGet<Array<{ id: number; name: string; slug: string; position?: number }>>(`${API_BASE}`);
+  const raw = await httpGet<any[]>(`${API_BASE}`);
   return (raw ?? []).map(mapApiToModel);
 }
 
@@ -120,23 +125,27 @@ export async function createCategory(payload: {
   slug: string;
   position?: number;
   parentId?: string | null;
+  icon?: string;
+  image?: string;
+  isActive?: boolean;
 }): Promise<ModelCategory> {
-  const r = await httpPost<{ id: number; name: string; slug: string; position?: number }>(`${ADMIN_BASE}`, {
+  const r = await httpPost<any>(`${ADMIN_BASE}`, {
     name: payload.name,
-    slug: payload.slug,
+    slug: slugify(payload.slug),
     position: payload.position ?? 0,
+    // parentId/icon/image/isActive só serão usados se o backend suportar
   });
   return mapApiToModel(r);
 }
 
 export async function updateCategory(
   id: string | number,
-  patch: Partial<{ name: string; slug: string; position?: number; parentId?: string | null }>
+  patch: Partial<{ name: string; slug: string; position?: number; parentId?: string | null; icon?: string; image?: string; isActive?: boolean }>
 ): Promise<ModelCategory> {
   const rid = Number(id);
-  const r = await httpPatch<{ id: number; name: string; slug: string; position?: number }>(`${ADMIN_BASE}/${rid}`, {
+  const r = await httpPatch<any>(`${ADMIN_BASE}/${rid}`, {
     ...(patch.name !== undefined ? { name: patch.name } : {}),
-    ...(patch.slug !== undefined ? { slug: patch.slug } : {}),
+    ...(patch.slug !== undefined ? { slug: slugify(patch.slug) } : {}),
     ...(patch.position !== undefined ? { position: Number(patch.position) } : {}),
   });
   return mapApiToModel(r);
@@ -148,6 +157,9 @@ export async function upsertCategory(payload: {
   slug: string;
   position?: number;
   parentId?: string | null;
+  icon?: string;
+  image?: string;
+  isActive?: boolean;
 }) {
   if (payload.id && Number(payload.id) > 0) {
     return updateCategory(payload.id, {
@@ -155,6 +167,9 @@ export async function upsertCategory(payload: {
       slug: payload.slug,
       position: payload.position,
       parentId: payload.parentId ?? null,
+      icon: payload.icon,
+      image: payload.image,
+      isActive: payload.isActive,
     });
   }
   return createCategory({
@@ -162,6 +177,9 @@ export async function upsertCategory(payload: {
     slug: payload.slug,
     position: payload.position,
     parentId: payload.parentId ?? null,
+    icon: payload.icon,
+    image: payload.image,
+    isActive: payload.isActive,
   });
 }
 
@@ -188,6 +206,7 @@ export const CategoryRepository = {
   upsertCategory,
   deleteCategory,
   reorderCategories,
+  slugify,
 };
 
 export default CategoryRepository;

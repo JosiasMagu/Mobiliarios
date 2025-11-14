@@ -9,43 +9,19 @@ export function Footer() {
         <div>
           <div className="font-semibold mb-3">Institucional</div>
           <ul className="space-y-2 text-slate-600">
-            <li>
-              <Link to="/sobre" className="hover:text-slate-900">
-                Sobre nós
-              </Link>
-            </li>
-            <li>
-              <Link to="/contato" className="hover:text-slate-900">
-                Contato
-              </Link>
-            </li>
-            <li>
-              <Link to="/faq" className="hover:text-slate-900">
-                FAQ
-              </Link>
-            </li>
+            <li><Link to="/sobre" className="hover:text-slate-900">Sobre nós</Link></li>
+            <li><Link to="/contato" className="hover:text-slate-900">Contato</Link></li>
+            <li><Link to="/faq" className="hover:text-slate-900">FAQ</Link></li>
           </ul>
         </div>
 
-        {/* Ajuda / Suporte */}
+        {/* Ajuda */}
         <div>
           <div className="font-semibold mb-3">Ajuda</div>
           <ul className="space-y-2 text-slate-600">
-            <li>
-              <Link to="/cart" className="hover:text-slate-900">
-                Carrinho
-              </Link>
-            </li>
-            <li>
-              <Link to="/checkout" className="hover:text-slate-900">
-                Checkout
-              </Link>
-            </li>
-            <li>
-              <Link to="/account" className="hover:text-slate-900">
-                Minha conta
-              </Link>
-            </li>
+            <li><Link to="/cart" className="hover:text-slate-900">Carrinho</Link></li>
+            <li><Link to="/checkout" className="hover:text-slate-900">Checkout</Link></li>
+            <li><Link to="/account" className="hover:text-slate-900">Minha conta</Link></li>
           </ul>
         </div>
 
@@ -53,50 +29,22 @@ export function Footer() {
         <div>
           <div className="font-semibold mb-3">Políticas</div>
           <ul className="space-y-2 text-slate-600">
-            <li>
-              <Link to="/politicas" className="hover:text-slate-900">
-                Política de Privacidade
-              </Link>
-            </li>
-            <li>
-              <Link to="/politicas" className="hover:text-slate-900">
-                Política de Devolução/Troca
-              </Link>
-            </li>
-            <li>
-              <Link to="/politicas" className="hover:text-slate-900">
-                Termos e Condições
-              </Link>
-            </li>
+            <li><Link to="/politicas" className="hover:text-slate-900">Política de Privacidade</Link></li>
+            <li><Link to="/politicas#devolucao" className="hover:text-slate-900">Devolução/Troca</Link></li>
+            <li><Link to="/politicas#termos" className="hover:text-slate-900">Termos e Condições</Link></li>
+            <li><Link to="/politicas#seguranca" className="hover:text-slate-900">Segurança</Link></li>
+            <li><Link to="/politicas#frete" className="hover:text-slate-900">Envio e Frete</Link></li>
+            <li><Link to="/politicas#pagamentos" className="hover:text-slate-900">Formas de Pagamento</Link></li>
           </ul>
         </div>
 
-        {/* Contato direto / Social */}
+        {/* Contato */}
         <div>
           <div className="font-semibold mb-3">Contato</div>
           <ul className="space-y-2 text-slate-600">
             <li>WhatsApp: +258 84 000 0000</li>
-            <li>Email: suporte@mobicasa.co.mz</li>
+            <li>Email: suporte@mobiliarte.co.mz</li>
             <li>Maputo · Moçambique</li>
-          </ul>
-
-          <div className="font-semibold mt-6 mb-3">Siga-nos</div>
-          <ul className="space-y-2 text-slate-600">
-            <li>
-              <a href="#" className="hover:text-slate-900">
-                Instagram
-              </a>
-            </li>
-            <li>
-              <a href="#" className="hover:text-slate-900">
-                Facebook
-              </a>
-            </li>
-            <li>
-              <a href="#" className="hover:text-slate-900">
-                TikTok
-              </a>
-            </li>
           </ul>
         </div>
       </div>

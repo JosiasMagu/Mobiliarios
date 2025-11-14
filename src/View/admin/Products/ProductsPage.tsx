@@ -1,3 +1,4 @@
+// src/pages/ProductPage.tsx
 import { useEffect } from "react";
 import { Plus } from "lucide-react";
 import ProductTable from "@/Components/admin/productTable";
@@ -26,6 +27,7 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

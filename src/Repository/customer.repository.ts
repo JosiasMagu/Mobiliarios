@@ -1,62 +1,53 @@
 // src/Repository/customer.repository.ts
+import { httpGet, httpPost, httpDelete } from "@utils/api";
+
 export type CustomerProfile = { id: string; name: string; email: string };
-export type Address = {
-  id: string;
-  street: string; city: string; state: string; zip: string;
-};
+export type Address = { id: number | string; street: string; city: string; state: string; zip: string | null };
 export type Prefs = { marketing: boolean };
 
-const db: {
-  profiles: Record<string, CustomerProfile>;
-  addresses: Record<string, Address[]>;
-  prefs: Record<string, Prefs>;
-} = { profiles: {}, addresses: {}, prefs: {} };
-
-const uid = () => Math.random().toString(36).slice(2);
-
+// Perfis não são persistidos aqui; o front usa /api/auth/me.
+// Mantemos as assinaturas para compatibilidade.
 export async function getOrCreateProfile(email: string, name?: string): Promise<CustomerProfile> {
-  const key = email.toLowerCase();
-  if (!db.profiles[key]) {
-    db.profiles[key] = { id: uid(), name: name || email.split("@")[0], email };
-    db.addresses[key] = [];
-    db.prefs[key] = { marketing: false };
-  }
-  return db.profiles[key];
+  const safeEmail = String(email || "").toLowerCase();
+  return { id: safeEmail, name: name ?? safeEmail.split("@")[0], email: safeEmail };
 }
-
 export async function saveProfile(p: CustomerProfile) {
-  db.profiles[p.email.toLowerCase()] = p;
   return p;
 }
 
-export async function listAddresses(email: string) {
-  return [...(db.addresses[email.toLowerCase()] ?? [])];
+/** Endereços do usuário autenticado (token no header via http helpers) */
+export async function listAddresses(_email: string) {
+  const list = await httpGet<Address[]>("/api/account/addresses");
+  return Array.isArray(list) ? list : [];
 }
 
-export async function upsertAddress(email: string, a: Omit<Address, "id"> & { id?: string }) {
-  const key = email.toLowerCase();
-  const arr = db.addresses[key] ?? (db.addresses[key] = []);
-  if (a.id) {
-    const i = arr.findIndex(x => x.id === a.id);
-    if (i >= 0) arr[i] = { ...(arr[i]), ...a } as Address;
-    else arr.push({ ...(a as any) });
-  } else {
-    arr.push({ id: uid(), ...a });
-  }
-  return listAddresses(email);
+/** Cria/atualiza endereço. Para edição por ID, ajustar backend com PATCH. */
+export async function upsertAddress(
+  _email: string,
+  a: Omit<Address, "id"> & { id?: number | string }
+) {
+  await httpPost("/api/account/addresses", {
+    street: a.street,
+    city: a.city,
+    state: a.state,
+    zip: a.zip ?? null,
+  });
+  return listAddresses("");
 }
 
-export async function deleteAddress(email: string, id: string) {
-  const key = email.toLowerCase();
-  db.addresses[key] = (db.addresses[key] ?? []).filter(a => a.id !== id);
-  return listAddresses(email);
+/** Remove endereço e retorna lista atualizada */
+export async function deleteAddress(_email: string, id: number | string) {
+  await httpDelete(`/api/account/addresses/${id}`);
+  return listAddresses("");
 }
 
-export async function getPrefs(email: string) {
-  return db.prefs[email.toLowerCase()] ?? { marketing: false };
+/** Preferências de comunicação do usuário autenticado */
+export async function getPrefs(_email: string) {
+  const p = await httpGet<Prefs>("/api/account/prefs");
+  return { marketing: !!p?.marketing };
 }
 
-export async function savePrefs(email: string, p: Prefs) {
-  db.prefs[email.toLowerCase()] = p;
-  return p;
+export async function savePrefs(_email: string, p: Prefs) {
+  const next = await httpPost<Prefs>("/api/account/prefs", { marketing: !!p.marketing });
+  return { marketing: !!next.marketing };
 }

@@ -20,7 +20,8 @@ export default function CategoriesPage() {
     if (!q) return cat.items;
     return cat.items.filter(c =>
       c.name.toLowerCase().includes(q) ||
-      (c.slug?.toLowerCase().includes(q)));
+      (c.slug?.toLowerCase().includes(q))
+    );
   }, [cat.items, query]);
 
   function openNew() {

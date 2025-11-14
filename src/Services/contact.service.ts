@@ -1,11 +1,12 @@
+// src/Services/contact.service.ts
 export type ContactPayload = { name: string; email: string; message: string };
 
 export async function sendContact(payload: ContactPayload) {
-  // mock: guarda no localStorage e resolve
-  const key = "contact_messages";
-  const prev = JSON.parse(localStorage.getItem(key) || "[]");
-  prev.push({ ...payload, createdAt: new Date().toISOString() });
-  localStorage.setItem(key, JSON.stringify(prev));
-  await new Promise(r => setTimeout(r, 400));
+  const res = await fetch("/api/public/contact", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Falha ao enviar");
   return true;
 }

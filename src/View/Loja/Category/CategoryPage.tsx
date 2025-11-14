@@ -14,7 +14,7 @@ function titleFromSlug(slug: string) {
 
 export default function CategoryPage() {
   const { slug = "" } = useParams();
-  const c = useCategoryController(slug);
+  const c = useCategoryController(slug || "");
 
   const cartStore = useCartStore();
   const uiStore = useUIStore();
@@ -22,7 +22,7 @@ export default function CategoryPage() {
   const totalQty = cartStore.totalQty;
   const wishlistCount = cartStore.wishlistCount;
   const addItem = cartStore.addItem;
-  const addWish = cartStore.addWish;
+  const addWish = (cartStore as any).addWish as (() => void) | undefined;
 
   const menuOpen = uiStore.menuOpen;
   const setMenuOpenProp = (v: boolean) => {
@@ -36,10 +36,8 @@ export default function CategoryPage() {
     }
   };
 
-  const minPrice =
-    c.items.length > 0 ? Math.min(...c.items.map((i) => Number(i.price))) : undefined;
-  const maxPrice =
-    c.items.length > 0 ? Math.max(...c.items.map((i) => Number(i.price))) : undefined;
+  const minPrice = c.items.length > 0 ? Math.min(...c.items.map((i) => Number(i.price))) : undefined;
+  const maxPrice = c.items.length > 0 ? Math.max(...c.items.map((i) => Number(i.price))) : undefined;
 
   const info =
     c.totalFiltered > 0
@@ -61,8 +59,9 @@ export default function CategoryPage() {
     addItem({ productId: p.id as any, name: p.name, price: Number(p.price), image }, 1);
   };
 
-  // addWish do store aceita 0 argumentos (erro TS2554)
-  const onAddWish = (_id: number) => addWish();
+  const onAddWish = (_id: number) => {
+    if (addWish) addWish();
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -87,14 +86,14 @@ export default function CategoryPage() {
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <Link className="hover:text-gray-700" to="/">Móveis</Link>
               <span className="material-symbols-outlined text-base align-middle select-none">chevron_right</span>
-              <span className="font-semibold text-gray-700">{titleFromSlug(slug)}</span>
+              <span className="font-semibold text-gray-700">{titleFromSlug(slug || "")}</span>
             </div>
             <div className="mt-4">
               <h1 className="text-4xl font-extrabold tracking-tight text-gray-900">
-                {titleFromSlug(slug)}
+                {titleFromSlug(slug || "")}
               </h1>
               <p className="mt-2 text-lg text-gray-600">
-                Explore nossa seleção de {titleFromSlug(slug).toLowerCase()} para todos os estilos e espaços.
+                Explore nossa seleção de {(titleFromSlug(slug || "")).toLowerCase()} para todos os estilos e espaços.
               </p>
             </div>
           </div>
@@ -124,12 +123,7 @@ export default function CategoryPage() {
               ) : (
                 <div className="mt-6 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-8">
                   {c.paged.map((p) => (
-                    <ProductCard
-                      key={p.id}
-                      p={p}
-                      onAddCart={onAddCart}
-                      onAddWish={onAddWish}
-                    />
+                    <ProductCard key={p.id} p={p} onAddCart={onAddCart} onAddWish={onAddWish} />
                   ))}
                 </div>
               )}

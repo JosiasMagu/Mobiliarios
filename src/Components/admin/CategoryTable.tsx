@@ -36,7 +36,7 @@ const CategoryTable: FC<Props> = ({ data, parents, onEdit, onDelete, onReorder }
           <tr>
             <th className="text-left px-4 py-3">Nome</th>
             <th className="text-left px-4 py-3">Pai</th>
-            <th className="text-left px-4 py-3">Ícone</th>
+            <th className="text-left px-4 py-3">Símbolo</th>
             <th className="text-left px-4 py-3">Posição</th>
             <th className="text-left px-4 py-3">Status</th>
             <th className="text-right px-4 py-3">Ações</th>
@@ -47,7 +47,7 @@ const CategoryTable: FC<Props> = ({ data, parents, onEdit, onDelete, onReorder }
             <tr key={String(c.id)} className="border-t border-slate-200/60">
               <td className="px-4 py-3">{c.name}</td>
               <td className="px-4 py-3">{parentName(c.parentId as any)}</td>
-              <td className="px-4 py-3">{c.icon ? c.icon : "-"}</td>
+              <td className="px-4 py-3">{c.icon ? c.icon : "–"}</td>
               <td className="px-4 py-3">{c.position}</td>
               <td className="px-4 py-3">
                 <span

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -11,68 +11,102 @@ model Category {
   id        Int       @id @default(autoincrement())
   name      String
   slug      String    @unique
-  position  Int       @default(0)     // <— ADICIONADO
+  position  Int       @default(0)
   products  Product[]
   createdAt DateTime  @default(now())
 }
 
 model Product {
-  id         Int            @id @default(autoincrement())
-  name       String
-  slug       String         @unique
-  price      Decimal
-  stock      Int            @default(0)
-  active     Boolean        @default(true)
-  category   Category       @relation(fields: [categoryId], references: [id])
+  id     Int     @id @default(autoincrement())
+  name   String
+  slug   String  @unique
+  price  Decimal
+  stock  Int     @default(0)
+  active Boolean @default(true)
+
+  // imagens
+  images ProductImage[]
+
+  // categoria
   categoryId Int
-  images     ProductImage[]
-  items      OrderItem[]
-  createdAt  DateTime       @default(now())
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  // descrição e atributos (requisito 3)
+  description String @default("")
+  attributes  Json?
+
+  // LADOS OPOSTOS (corrigem P1012)
+  orderItems OrderItem[]      @relation("Product_OrderItems")
+  featured   FeaturedProduct? @relation("Product_Featured")
 }
 
 model ProductImage {
   id        Int     @id @default(autoincrement())
   url       String
-  product   Product @relation(fields: [productId], references: [id])
   productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model User {
+  id           Int               @id @default(autoincrement())
+  name         String
+  email        String            @unique
+  passwordHash String
+  role         String            @default("CLIENTE")
+  createdAt    DateTime          @default(now())
+  orders       Order[]
+  addresses    CustomerAddress[]
+  pref         CustomerPref?
+
+  @@index([role])
 }
 
 model Order {
-  id             Int         @id @default(autoincrement())
-  status         String      @default("PENDING") // PENDING|PAID|SHIPPED|DELIVERED|CANCELLED
-  subtotal       Decimal
-  shippingCost   Decimal
-  total          Decimal
-  paymentMethod  String      // EMOLA|MPESA|BANK
-  shippingMethod String      // STANDARD|EXPRESS|PICKUP|ZONE
-  guestName      String?
-  // relação com usuário (novo)
-  userId         Int?
-  user           User?       @relation(fields: [userId], references: [id])
+  id             Int     @id @default(autoincrement())
+  status         String  @default("PENDING")
+  subtotal       Decimal @db.Decimal(12, 2)
+  shippingCost   Decimal @db.Decimal(12, 2)
+  total          Decimal @db.Decimal(12, 2)
+  paymentMethod  String
+  shippingMethod String
 
-  items          OrderItem[]
-  address        Address?
-  createdAt      DateTime    @default(now())
+  guestName String?
+
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  items   OrderItem[]
+  address Address?
+
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }
 
 model OrderItem {
-  id        Int     @id @default(autoincrement())
-  order     Order   @relation(fields: [orderId], references: [id])
-  orderId   Int
-  product   Product @relation(fields: [productId], references: [id])
+  id      Int   @id @default(autoincrement())
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
   productId Int
-  name      String
-  price     Decimal
-  qty       Int
-  image     String?
+  product   Product @relation("Product_OrderItems", fields: [productId], references: [id], onDelete: Restrict)
+
+  name  String
+  price Decimal @db.Decimal(12, 2)
+  qty   Int
+  image String?
+
+  @@index([orderId])
+  @@index([productId])
 }
 
 model Address {
-  id         Int     @id @default(autoincrement())
-  order      Order   @relation(fields: [orderId], references: [id])
-  orderId    Int     @unique
+  id      Int   @id @default(autoincrement())
+  orderId Int   @unique
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
   nome       String
   telefone   String
   provincia  String
@@ -81,31 +115,147 @@ model Address {
   referencia String?
 }
 
+model CustomerAddress {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  street    String
+  city      String
+  state     String
+  zip       String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model CustomerPref {
+  userId    Int      @id @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  marketing Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("customer_prefs")
+}
+
+enum PaymentType {
+  EMOLA
+  MPESA
+  BANK
+}
+
 model PaymentMethod {
-  id            Int     @id @default(autoincrement())
-  type          String
-  name          String  @unique
-  active        Boolean @default(true)
-  walletPhone   String?
-  bankName      String?
-  accountHolder String?
-  accountNumber String?
+  id     Int         @id @default(autoincrement())
+  name   String      @unique
+  type   PaymentType
+  active Boolean     @default(true)
+
+  walletPhone   String? @map("wallet_phone")
+  bankName      String? @map("bank_name")
+  accountHolder String? @map("account_holder")
+  accountNumber String? @map("account_number")
+  iban          String? @map("iban")
+
+  feePct       Decimal? @map("fee_pct") @db.Decimal(12, 2)
+  fixedFee     Decimal? @map("fixed_fee") @db.Decimal(12, 2)
+  instructions String?  @map("instructions")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("payment_methods")
+}
+
+enum ShippingService {
+  STANDARD
+  EXPRESS
+  PICKUP
+  ZONE
 }
 
 model ShippingRule {
-  id       Int     @id @default(autoincrement())
-  service  String
-  name     String  @unique
-  baseCost Decimal
-  zoneJson String?
+  id       Int             @id @default(autoincrement())
+  name     String
+  service  ShippingService
+  baseCost Decimal         @map("base_cost") @db.Decimal(12, 2)
+  zoneJson String?         @map("zone_json")
+
+  costPerKg Decimal? @map("cost_per_kg") @db.Decimal(12, 2)
+  minDays   Int?     @map("min_days")
+  maxDays   Int?     @map("max_days")
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("shipping_rules")
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  role      String   @default("CLIENTE") // "ADMIN" | "GERENTE" | "CLIENTE"
-  createdAt DateTime @default(now())
-  orders    Order[]
+enum CouponType {
+  PERCENT
+  FIXED
+}
+
+enum CampaignProvider {
+  MAILCHIMP
+  SENDGRID
+  CUSTOM
+}
+
+enum CampaignAudience {
+  ALL
+  CUSTOMERS
+  GUESTS
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENT
+}
+
+model Coupon {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  type      CouponType
+  value     Decimal    @db.Decimal(10, 2)
+  minOrder  Decimal?   @db.Decimal(12, 2)
+  maxUses   Int?
+  used      Int        @default(0)
+  active    Boolean    @default(true)
+  expiresAt DateTime?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model LoyaltyTier {
+  id       String  @id @default(cuid())
+  name     String
+  minSpend Decimal @db.Decimal(12, 2)
+  perk     String
+}
+
+model Campaign {
+  id          String            @id @default(cuid())
+  name        String
+  provider    CampaignProvider?
+  externalId  String?
+  subject     String
+  audience    CampaignAudience
+  status      CampaignStatus    @default(DRAFT)
+  scheduledAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model FeaturedProduct {
+  id        Int @id @default(autoincrement())
+  productId Int
+  position  Int @default(0)
+
+  // relação nomeada; lado oposto em Product.featured
+  product Product @relation("Product_Featured", fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId])
+  @@index([position])
 }

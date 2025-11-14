@@ -1,16 +1,15 @@
 // src/Repository/order.repository.ts
-import { httpGet, httpPost } from "@/Utils/api";
+import { httpGet, httpPost } from "@utils/api";
 
 export type OrderStatus = "pending" | "paid" | "shipped" | "delivered" | "cancelled";
 export type OrderItem = { productId: number; name: string; price: number; qty: number; image?: string };
 export type ShippingMethod = "standard" | "express" | "pickup" | "flat" | "zone";
-export type PaymentKind = "mpesa" | "emola" | "bank"; // mantém a API do backend
+export type PaymentKind = "mpesa" | "emola" | "bank";
 
 export type OrderAddress = {
   nome?: string; telefone?: string; provincia?: string; cidade?: string; bairro?: string; referencia?: string;
   street?: string; state?: string; zip?: string;
 };
-
 export type OrderHistory = { status: OrderStatus; note?: string; at: string };
 export type OrderCustomer = { id?: string; name?: string; email?: string; guest?: boolean };
 
@@ -38,7 +37,8 @@ function normalizeOrder(raw: any): Order {
   const statusMap: Record<string, OrderStatus> = {
     pending: "pending", paid: "paid", shipped: "shipped", delivered: "delivered", cancelled: "cancelled",
   };
-  const customer: OrderCustomer | undefined = raw.customer
+
+  const customer: OrderCustomer | undefined = raw?.customer
     ? {
         id: raw.customer.id ?? raw.customer.email,
         name: raw.customer.name ?? raw.customer.fullName,
@@ -47,14 +47,13 @@ function normalizeOrder(raw: any): Order {
       }
     : undefined;
 
-  const history: OrderHistory[] =
-    Array.isArray(raw.history)
-      ? raw.history.map((h: any) => ({
-          status: statusMap[down(h.status)] ?? "pending",
-          note: h.note ?? h.message,
-          at: String(h.at ?? h.createdAt ?? new Date().toISOString()),
-        }))
-      : [];
+  const history: OrderHistory[] = Array.isArray(raw?.history)
+    ? raw.history.map((h: any) => ({
+        status: statusMap[down(h.status)] ?? "pending",
+        note: h.note ?? h.message,
+        at: String(h.at ?? h.createdAt ?? new Date().toISOString()),
+      }))
+    : [];
 
   return {
     id: String(raw.id),
@@ -100,6 +99,7 @@ export async function createOrder(payload: {
   };
   const raw = await httpPost<any>("/api/orders", body, token);
   if (raw && raw.items) return normalizeOrder(raw);
+
   const full = await httpGet<any>(`/api/orders/${raw?.id ?? raw}`, token);
   return normalizeOrder(full);
 }
@@ -114,8 +114,9 @@ export async function listMyOrders(token?: string): Promise<Order[]> {
   return (raw ?? []).map(normalizeOrder);
 }
 
+/** ADMIN: lista todos os pedidos para agregar clientes na CustomersPage */
 export async function listAllOrders(token?: string): Promise<Order[]> {
-  const raw = await httpGet<any[]>("/api/orders", token);
+  const raw = await httpGet<any[]>("/api/admin/orders", token);
   return (raw ?? []).map(normalizeOrder);
 }
 

@@ -1,215 +1,140 @@
 // src/Controllers/Account/account.controller.ts
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AuthService } from "../../Services/auth.service";
-import type { User } from "../../Services/auth.service";
-import { listMyOrders } from "../../Repository/order.repository";
+import { AuthService, type User } from "@/Services/auth.service";
+import { listMyOrders } from "@/Repository/order.repository";
 import {
   listAddresses,
   upsertAddress,
   deleteAddress,
   getPrefs,
   savePrefs,
-} from "../../Repository/customer.repository";
+} from "@/Repository/customer.repository";
 
-const CLIENT_AUTH_KEY = "client_auth_v1";
-const LEGACY_USER_KEY = "auth_user";
-const DEFAULT_TIMEOUT_MS = 3000;
+/** tempo máximo para aguardar o backend antes de devolver um fallback local */
+const DEFAULT_TIMEOUT_MS = 5000;
 
-/** Resolve em até `ms`. Se estourar, retorna `fallback`. */
-async function withTimeout<T>(p: Promise<T>, ms = DEFAULT_TIMEOUT_MS, fallback: T): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | null = null;
+async function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let t: ReturnType<typeof setTimeout> | null = null;
   try {
-    const timeoutPromise = new Promise<T>((resolve) => {
-      timer = setTimeout(() => resolve(fallback), ms);
+    const timeout = new Promise<T>((resolve) => {
+      t = setTimeout(() => resolve(fallback), ms);
     });
-    const result = await Promise.race<T>([p, timeoutPromise]);
-    return result;
+    return await Promise.race([p, timeout]);
   } finally {
-    if (timer !== null) {
-      clearTimeout(timer);
-    }
+    if (t) clearTimeout(t);
   }
 }
 
-function readClientUser(): User | null {
-  try {
-    const raw = localStorage.getItem(CLIENT_AUTH_KEY);
-    if (!raw) return null;
-    const v = JSON.parse(raw) as { token?: string | null; user?: User | null };
-    return (v?.user as User) ?? null;
-  } catch { return null; }
-}
-
-/** Sessão robusta: tenta AuthService.session() e cai para client_auth_v1 */
-function readAnySession(): { token: string | null; user: User | null } {
-  try {
-    const s = (AuthService as any)?.session?.();
-    if (s && (s.token || s.user)) return { token: s.token ?? null, user: s.user ?? null };
-  } catch {}
-  try {
-    const raw = localStorage.getItem(CLIENT_AUTH_KEY);
-    if (raw) {
-      const v = JSON.parse(raw) as { token?: string | null; user?: User | null };
-      return { token: v?.token ?? null, user: (v?.user as User) ?? null };
-    }
-  } catch {}
-  return { token: null, user: null };
-}
-
-function writeSession(u: User | null, token?: string | null) {
-  try {
-    if (u) {
-      localStorage.setItem(CLIENT_AUTH_KEY, JSON.stringify({ token: token ?? ("cli-" + Date.now()), user: u }));
-      localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(u));
-    } else {
-      localStorage.removeItem(CLIENT_AUTH_KEY);
-      localStorage.removeItem(LEGACY_USER_KEY);
-    }
-  } catch {}
-}
-
 export function useAccountController() {
-  const initialUser = (() => {
-    try { return AuthService?.me?.() ?? null; } catch { return readClientUser(); }
-  })();
-
-  const [user, setUser] = useState<User | null>(initialUser);
+  // estado principal
+  const [user, setUser] = useState<User | null>(AuthService.me());
   const [orders, setOrders] = useState<any[]>([]);
   const [addresses, setAddresses] = useState<any[]>([]);
   const [prefs, setPrefs] = useState<{ marketing: boolean }>({ marketing: false });
   const [loading, setLoading] = useState(true);
 
+  // controle de ciclo de vida
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
 
-  // evita refresh concorrente
-  const refreshing = useRef(false);
-  const lastUserSig = useRef<string | null>(null);
-
+  /** Bootstrap e recarregamento de dados do /account */
   const refresh = useCallback(async () => {
-    if (refreshing.current) return;
-    refreshing.current = true;
     setLoading(true);
     try {
-      let me: User | null = null;
-      try { me = AuthService?.me?.() ?? null; } catch { me = null; }
-      if (!me) me = readClientUser();
+      // 1) garantir usuário atual a partir do token
+      const me = await AuthService.refreshMe();
+      if (alive.current) setUser(me);
 
-      const sig = me ? JSON.stringify({ id: (me as any).id, email: me.email, name: (me as any).name }) : "null";
-      if (sig !== lastUserSig.current) {
-        lastUserSig.current = sig;
-        if (alive.current) setUser(me);
-      }
-
-      // NOVO: obter token real
-      const sess = readAnySession();
-      const token = sess.token ?? "";
-
-      // Sem user => limpa visual
       if (!me) {
-        if (alive.current) { setOrders([]); setAddresses([]); setPrefs({ marketing: false }); }
+        if (alive.current) {
+          setOrders([]);
+          setAddresses([]);
+          setPrefs({ marketing: false });
+        }
         return;
       }
 
-      // chamadas com timeout e fallback
-      // listMyOrders AGORA recebe token (antes recebia email/id)
-      const ord  = await withTimeout(listMyOrders(token), DEFAULT_TIMEOUT_MS, []);
-      const addr = me?.email
-        ? await withTimeout(listAddresses(me.email), DEFAULT_TIMEOUT_MS, [])
-        : [];
-      const pf   = me?.email
-        ? await withTimeout(getPrefs(me.email), DEFAULT_TIMEOUT_MS, { marketing: false })
-        : { marketing: false };
+      const token = AuthService.token() ?? undefined;
+      const email = me.email;
 
-      if (alive.current) {
-        setOrders(ord || []);
-        setAddresses(addr || []);
-        setPrefs(pf || { marketing: false });
-      }
+      // 2) carregar blocos em paralelo, com timeouts seguros
+      const [ordR, addrR, prefR] = await Promise.allSettled([
+        withTimeout(listMyOrders(token), DEFAULT_TIMEOUT_MS, [] as any[]),
+        withTimeout(listAddresses(email), DEFAULT_TIMEOUT_MS, [] as any[]),
+        withTimeout(getPrefs(email), DEFAULT_TIMEOUT_MS, { marketing: false }),
+      ]);
+
+      if (!alive.current) return;
+
+      if (ordR.status === "fulfilled") setOrders(ordR.value || []);
+      if (addrR.status === "fulfilled") setAddresses(addrR.value || []);
+      if (prefR.status === "fulfilled") setPrefs(prefR.value || { marketing: false });
     } finally {
-      refreshing.current = false;
       if (alive.current) setLoading(false);
     }
   }, []);
 
+  // carregar ao montar
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const signIn = useCallback(async (payload: Partial<User> & { email?: string | null }) => {
-    // fluxo local/anon
-    const next: User = {
-      id: String(Date.now()),
-      name: (payload as any)?.name ?? "Convidado",
-      email: payload.email ?? null,
-    };
-    writeSession(next);
-    try {
-      const anyAuth = AuthService as any;
-      if (typeof anyAuth.update === "function") await anyAuth.update(next);
-    } catch {}
-    if (alive.current) setUser(next);
-    void refresh();
-    return true;
-  }, [refresh]);
-
+  /** Logout limpo */
   const signOut = useCallback(() => {
-    try {
-      const anyAuth = AuthService as any;
-      if (typeof anyAuth.logout === "function") anyAuth.logout();
-    } catch {}
-    writeSession(null);
-    if (alive.current) {
-      setUser(null);
-      setOrders([]);
-      setAddresses([]);
-      setPrefs({ marketing: false });
-      setLoading(false);
-    }
+    AuthService.logout();
+    if (!alive.current) return;
+    setUser(null);
+    setOrders([]);
+    setAddresses([]);
+    setPrefs({ marketing: false });
+    setLoading(false);
   }, []);
 
+  /** Atualiza perfil local e no storage; backend é opcional no teu serviço */
   const updateProfile = useCallback(async (p: Partial<User>) => {
-    const me = user ?? readClientUser() ?? null;
-    if (!me) return;
-    const next: User = { ...me, ...p };
-    try {
-      const anyAuth = AuthService as any;
-      if (typeof anyAuth.update === "function") await anyAuth.update(next);
-      else writeSession(next);
-    } catch { writeSession(next); }
-    if (alive.current) {
-      setUser(next);
-      lastUserSig.current = JSON.stringify({ id: (next as any).id, email: next.email, name: (next as any).name });
-    }
-  }, [user]);
+    const next = await AuthService.update(p);
+    if (alive.current) setUser(next);
+  }, []);
 
+  /** Cria/atualiza endereço e recarrega lista para refletir na UI */
   const saveAddressHandler = useCallback(async (a: any) => {
     if (!user?.email) return;
-    const next = await withTimeout(upsertAddress(user.email, a), DEFAULT_TIMEOUT_MS, addresses);
-    if (alive.current && next) setAddresses(next);
+    await withTimeout(upsertAddress(user.email, a), DEFAULT_TIMEOUT_MS, null as any);
+    // sempre recarrega a lista para consistência
+    const list = await withTimeout(listAddresses(user.email), DEFAULT_TIMEOUT_MS, addresses);
+    if (alive.current) setAddresses(list || []);
   }, [user, addresses]);
 
-  const removeAddressHandler = useCallback(async (id: string) => {
+  /** Remove endereço por id e atualiza estado */
+  const removeAddressHandler = useCallback(async (id: string | number) => {
     if (!user?.email) return;
-    const next = await withTimeout(deleteAddress(user.email, id), DEFAULT_TIMEOUT_MS, addresses);
-    if (alive.current && next) setAddresses(next);
+    await withTimeout(deleteAddress(user.email, String(id)), DEFAULT_TIMEOUT_MS, null as any);
+    const list = await withTimeout(listAddresses(user.email), DEFAULT_TIMEOUT_MS, addresses);
+    if (alive.current) setAddresses(list || []);
   }, [user, addresses]);
 
+  /** Atualiza preferências com otimista e confirma no backend */
   const updatePrefsHandler = useCallback(async (p: { marketing: boolean }) => {
     if (!user?.email) return;
-    const next = await withTimeout(savePrefs(user.email, p), DEFAULT_TIMEOUT_MS, prefs);
-    if (alive.current && next) setPrefs(next);
+    const prev = prefs;
+    if (alive.current) setPrefs({ ...prev, ...p }); // otimista
+    try {
+      const saved = await withTimeout(savePrefs(user.email, { ...prev, ...p }), DEFAULT_TIMEOUT_MS, prev);
+      if (alive.current) setPrefs(saved || prev);
+    } catch {
+      if (alive.current) setPrefs(prev); // rollback
+    }
   }, [user, prefs]);
 
   return {
+    // dados
     user,
     orders,
     addresses,
     prefs,
     loading,
-    signIn,
-    signOut,
-    updateProfile,
-    logout: signOut,
+    // comandos
     refresh,
+    logout: signOut,
+    updateProfile,
     saveAddress: saveAddressHandler,
     removeAddress: removeAddressHandler,
     updatePrefs: updatePrefsHandler,

@@ -3,7 +3,6 @@ import type { Category } from "@model/category.model";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Image as ImageIcon } from "lucide-react";
 
-/** Aceita id como string ou number para compatibilizar com o teu model atual */
 type Id = string | number;
 
 type SubmitPayload =
@@ -20,20 +19,8 @@ type Props = {
   value?: Category | null;
 };
 
-const icons = ["package", "box", "chair", "lamp", "bed", "monitor", "table2"] as const;
-const iconLabel: Record<string, string> = {
-  package: "📦",
-  box: "🗃️",
-  chair: "🪑",
-  lamp: "💡",
-  bed: "🛏️",
-  monitor: "🖥️",
-  table2: "🛋️",
-};
-
 const CategoryFormDialog: FC<Props> = ({ open, onClose, onSubmit, parents, value }) => {
   const [name, setName] = useState<string>(value?.name || "");
-  // parentId pode ser string ou number no model do projeto; internamente usamos string|null
   const [parentId, setParentId] = useState<string | null>(
     value?.parentId != null ? String(value.parentId as any) : null
   );
@@ -55,6 +42,7 @@ const CategoryFormDialog: FC<Props> = ({ open, onClose, onSubmit, parents, value
 
   const title = value ? "Editar Categoria" : "Adicionar Categoria";
   const valid = name.trim().length > 2;
+  const slugPreview = useMemo(() => slugify(name), [name]);
 
   const selectableParents = useMemo(
     () => parents.filter(p => !value || String(p.id) !== String(value.id)),
@@ -71,22 +59,16 @@ const CategoryFormDialog: FC<Props> = ({ open, onClose, onSubmit, parents, value
 
   function submit() {
     if (!valid) return;
-
     const payload: SubmitPayload = {
-      // id mantém o tipo original se existir
       id: value?.id as Id | undefined,
       name: name.trim(),
-      // parentId volta como string|null; o repo/serviço decide converter para number se o model exigir
       parentId: (parentId as unknown) as any,
       icon,
       image,
       position: Number(position) || 1,
       isActive: Boolean(isActive),
-      // slug será normalizado no repositório; enviamos o nome por conveniência
-      slug: name.trim(),
-      // campos do Category que não estão no formulário permanecem intocados pelo serviço
+      slug: slugPreview,
     } as any;
-
     onSubmit(payload);
   }
 
@@ -111,6 +93,7 @@ const CategoryFormDialog: FC<Props> = ({ open, onClose, onSubmit, parents, value
               className="mt-1 w-full rounded-lg ring-1 ring-slate-200 px-3 py-2 outline-none focus:ring-slate-400"
               placeholder="ex: Escritório"
             />
+            <div className="mt-1 text-[11px] text-slate-500">Slug pré-visualizado: <span className="font-mono">{slugPreview || "—"}</span></div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -131,21 +114,15 @@ const CategoryFormDialog: FC<Props> = ({ open, onClose, onSubmit, parents, value
             </div>
 
             <div>
-              <label className="text-sm text-slate-600">Ícone</label>
-              <div className="mt-1 grid grid-cols-7 gap-2">
-                {icons.map(k => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setIcon(k === icon ? undefined : k)}
-                    className={`h-9 rounded-lg ring-1 px-2 text-base
-                      ${icon === k ? "ring-blue-500 bg-blue-50" : "ring-slate-200 hover:bg-slate-50"}`}
-                    title={k}
-                  >
-                    {iconLabel[k]}
-                  </button>
-                ))}
-              </div>
+              <label className="text-sm text-slate-600">Símbolo opcional</label>
+              <input
+                value={icon ?? ""}
+                onChange={e => setIcon(e.target.value || undefined)}
+                className="mt-1 w-full rounded-lg ring-1 ring-slate-200 px-3 py-2 outline-none"
+                placeholder="Digite um emoji ou símbolo, ex: 🪑"
+                maxLength={4}
+              />
+              <div className="mt-1 text-[11px] text-slate-500">Mostrado na loja ao lado do nome, se preenchido.</div>
             </div>
 
             <div>
@@ -225,3 +202,14 @@ const CategoryFormDialog: FC<Props> = ({ open, onClose, onSubmit, parents, value
 };
 
 export default CategoryFormDialog;
+
+// util local para pré-visualização, mantendo igual ao repo:
+function slugify(s: string): string {
+  return (s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}

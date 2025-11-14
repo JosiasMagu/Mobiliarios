@@ -16,19 +16,37 @@ const typeOptions: { value: PaymentKind; label: string }[] = [
 ];
 
 export default function PaymentMethodFormDialog({ open, onClose, initial }: Props) {
-  const [form, setForm] = useState<PaymentMethod>(
-    initial ?? {
-      id: crypto.randomUUID(),
-      name: "M-Pesa",
-      type: "mpesa",
-      active: true,
-    }
-  );
+  // Não colocar id aqui. Sem id => CREATE. Com id => UPDATE.
+  const [form, setForm] = useState<PaymentMethod>({
+    // id: undefined
+    id: "" as any, // manter o tipo, mas vazio para não acionar update
+    name: "M-Pesa",
+    type: "mpesa",
+    active: true,
+    walletPhone: "",
+    feePct: undefined,
+    fixedFee: undefined,
+    instructions: "",
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (initial) setForm(initial);
-  }, [initial]);
+    if (!open) return;
+    if (initial) {
+      setForm(initial);
+    } else {
+      setForm({
+        id: "" as any,
+        name: "M-Pesa",
+        type: "mpesa",
+        active: true,
+        walletPhone: "",
+        feePct: undefined,
+        fixedFee: undefined,
+        instructions: "",
+      });
+    }
+  }, [open, initial]);
 
   const isWallet = form.type === "mpesa" || form.type === "emola";
   const isBank = form.type === "bank";
@@ -37,15 +55,19 @@ export default function PaymentMethodFormDialog({ open, onClose, initial }: Prop
     const e: Record<string, string> = {};
     if (!form.name?.trim()) e.name = "Nome obrigatório.";
     if (!form.type) e.type = "Tipo obrigatório.";
+
     if (isWallet) {
-      if (!form.walletPhone?.trim()) e.walletPhone = "Telefone obrigatório.";
-      else if (!MZ_PHONE_REGEX.test(form.walletPhone)) e.walletPhone = "Telefone inválido.";
+      const digits = String(form.walletPhone ?? "").replace(/\D/g, "");
+      if (!digits) e.walletPhone = "Telefone obrigatório.";
+      else if (!MZ_PHONE_REGEX.test(digits)) e.walletPhone = "Telefone inválido.";
     }
+
     if (isBank) {
       if (!form.bankName?.trim()) e.bankName = "Banco obrigatório.";
       if (!form.accountHolder?.trim()) e.accountHolder = "Titular obrigatório.";
       if (!form.accountNumber?.trim()) e.accountNumber = "Nº da conta obrigatório.";
     }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   }, [form, isWallet, isBank]);
@@ -53,15 +75,30 @@ export default function PaymentMethodFormDialog({ open, onClose, initial }: Prop
   if (!open) return null;
 
   function update<K extends keyof PaymentMethod>(key: K, value: PaymentMethod[K]) {
+    // sanitiza telefone da carteira
+    if (key === "walletPhone") {
+      value = String(value ?? "").replace(/\D/g, "") as any;
+    }
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!valid) return;
-    await upsertPaymentMethod(form);
+
+    // garante que CREATE não envia id
+    const payload: PaymentMethod = { ...form };
+    if (!initial) {
+      // remove id “vazio” antes de enviar
+      // @ts-ignore
+      delete payload.id;
+    }
+    await upsertPaymentMethod(payload);
     onClose();
   }
+
+  const inputCls =
+    "input rounded-lg ring-1 ring-slate-200 px-3 py-2 outline-none focus:ring-slate-400";
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center">
@@ -82,7 +119,7 @@ export default function PaymentMethodFormDialog({ open, onClose, initial }: Prop
             <input
               value={form.name ?? ""}
               onChange={(e) => update("name", e.target.value)}
-              className="input"
+              className={inputCls}
               aria-invalid={!!errors.name}
             />
             {errors.name && <span className="text-red-600 text-sm">{errors.name}</span>}
@@ -93,7 +130,7 @@ export default function PaymentMethodFormDialog({ open, onClose, initial }: Prop
             <select
               value={form.type}
               onChange={(e) => update("type", e.target.value as PaymentKind)}
-              className="input"
+              className={inputCls}
               aria-invalid={!!errors.type}
             >
               {typeOptions.map((o) => (
@@ -123,7 +160,7 @@ export default function PaymentMethodFormDialog({ open, onClose, initial }: Prop
               onChange={(e) =>
                 update("feePct", e.target.value === "" ? undefined : Number(e.target.value))
               }
-              className="input"
+              className={inputCls}
             />
           </label>
 
@@ -136,7 +173,7 @@ export default function PaymentMethodFormDialog({ open, onClose, initial }: Prop
               onChange={(e) =>
                 update("fixedFee", e.target.value === "" ? undefined : Number(e.target.value))
               }
-              className="input"
+              className={inputCls}
             />
           </label>
 
@@ -147,7 +184,7 @@ export default function PaymentMethodFormDialog({ open, onClose, initial }: Prop
                 value={form.walletPhone ?? ""}
                 onChange={(e) => update("walletPhone", e.target.value)}
                 placeholder="82/83/84/85/86/87 + 7 dígitos"
-                className="input"
+                className={inputCls}
                 aria-invalid={!!errors.walletPhone}
               />
               {errors.walletPhone && (
@@ -163,7 +200,7 @@ export default function PaymentMethodFormDialog({ open, onClose, initial }: Prop
                 <input
                   value={form.bankName ?? ""}
                   onChange={(e) => update("bankName", e.target.value)}
-                  className="input"
+                  className={inputCls}
                   aria-invalid={!!errors.bankName}
                 />
                 {errors.bankName && <span className="text-red-600 text-sm">{errors.bankName}</span>}
@@ -174,7 +211,7 @@ export default function PaymentMethodFormDialog({ open, onClose, initial }: Prop
                 <input
                   value={form.accountHolder ?? ""}
                   onChange={(e) => update("accountHolder", e.target.value)}
-                  className="input"
+                  className={inputCls}
                   aria-invalid={!!errors.accountHolder}
                 />
                 {errors.accountHolder && (
@@ -187,7 +224,7 @@ export default function PaymentMethodFormDialog({ open, onClose, initial }: Prop
                 <input
                   value={form.accountNumber ?? ""}
                   onChange={(e) => update("accountNumber", e.target.value)}
-                  className="input"
+                  className={inputCls}
                   aria-invalid={!!errors.accountNumber}
                 />
                 {errors.accountNumber && (
@@ -200,7 +237,7 @@ export default function PaymentMethodFormDialog({ open, onClose, initial }: Prop
                 <input
                   value={form.iban ?? ""}
                   onChange={(e) => update("iban", e.target.value)}
-                  className="input"
+                  className={inputCls}
                 />
               </label>
             </>
@@ -211,7 +248,7 @@ export default function PaymentMethodFormDialog({ open, onClose, initial }: Prop
             <textarea
               value={form.instructions ?? ""}
               onChange={(e) => update("instructions", e.target.value)}
-              className="input min-h-[100px]"
+              className={`${inputCls} min-h-[100px]`}
             />
           </label>
         </div>

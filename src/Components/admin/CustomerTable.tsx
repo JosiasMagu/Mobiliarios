@@ -17,7 +17,7 @@ const CustomerTable: FC<Props> = ({ data, loading, onOpen, onSearch }) => {
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
         <input
           type="text"
-          placeholder="Pesquisar por nome, email ou telefone"
+          placeholder="Pesquisar por nome ou email"
           className="w-full rounded-xl ring-1 ring-slate-200 pl-9 pr-3 py-2 outline-none bg-white focus:ring-slate-400"
           onChange={(e) => onSearch(e.target.value)}
         />
@@ -37,9 +37,17 @@ const CustomerTable: FC<Props> = ({ data, loading, onOpen, onSearch }) => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">A carregar…</td></tr>
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                  A carregar…
+                </td>
+              </tr>
             ) : data.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Sem clientes.</td></tr>
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                  Sem clientes.
+                </td>
+              </tr>
             ) : (
               data.map((r) => (
                 <tr key={r.profile.id} className="border-t border-slate-200/60">
@@ -48,11 +56,15 @@ const CustomerTable: FC<Props> = ({ data, loading, onOpen, onSearch }) => {
                   <td className="px-4 py-3">{r.ordersCount}</td>
                   <td className="px-4 py-3">{currency(r.totalSpent)}</td>
                   <td className="px-4 py-3">
-                    {r.lastOrderAt ? new Date(r.lastOrderAt).toLocaleDateString() : "-"}
+                    {r.lastOrderAt ? new Date(r.lastOrderAt).toLocaleDateString("pt-MZ") : "-"}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end">
-                      <button className="icon-btn" title="Ver perfil" onClick={() => onOpen(r.profile.id)}>
+                      <button
+                        className="icon-btn"
+                        title="Ver perfil"
+                        onClick={() => onOpen(r.profile.id)}
+                      >
                         <Eye className="h-4 w-4" />
                       </button>
                     </div>

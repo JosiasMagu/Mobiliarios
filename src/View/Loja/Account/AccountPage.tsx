@@ -4,7 +4,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Navbar } from "@comp/home/Navbar";
 import { useCartStore } from "@state/cart.store";
 import { useUIStore } from "@state/ui.store";
-import { useAccountController } from "@controller/Loja/account.controller";
+import { useAccountController } from "@/Controllers/Loja/account.controller";
 import { LogOut, Mail, User as UserIcon, MapPin, Heart, Bell, Package } from "lucide-react";
 
 type Tab = "overview" | "profile" | "addresses" | "orders" | "prefs";
@@ -23,7 +23,7 @@ export default function AccountPage() {
     addresses,
     prefs,
     loading,
-    signOut,
+    logout,
     updateProfile,
     saveAddress,
     removeAddress,
@@ -66,16 +66,10 @@ export default function AccountPage() {
     }
   };
 
-  // helper: converte do nosso formulário para o formato do repository
+  // helper: converte do formulário para o formato do repository
   const toRepoAddress = (f: AddressForm) => {
-    // street: juntamos bairro + referência
     const street = f.referencia ? `${f.bairro} — ${f.referencia}` : f.bairro;
-    return {
-      street,                // rua/bairro + referência
-      city: f.cidade,        // cidade
-      state: f.provincia,    // província
-      zip: "",               // sem CEP no formulário
-    };
+    return { street, city: f.cidade, state: f.provincia, zip: "" };
   };
 
   // helper: render amigável vindo do repository (street/city/state/zip)
@@ -136,10 +130,8 @@ export default function AccountPage() {
               <div className="h-px bg-slate-200/60 my-2" />
               <button
                 onClick={() => {
-                  // encerra sessão e garante tela limpa
-                  signOut();
+                  logout();
                   nav("/login", { replace: true });
-                  // força recarregar para zerar qualquer estado pendente do app
                   setTimeout(() => window.location.reload(), 0);
                 }}
                 className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
@@ -150,7 +142,6 @@ export default function AccountPage() {
           </aside>
 
           <section className="space-y-6">
-            {/* Nunca esconda conteúdo apenas por loading */}
             {tab === "overview" && (
               <div className="grid md:grid-cols-2 gap-6">
                 <Tile icon={<UserIcon className="w-4 h-4" />} title="Detalhes do perfil" subtitle="Editar" />
@@ -245,7 +236,6 @@ export default function AccountPage() {
                     />
                     <button
                       onClick={async () => {
-                        // mapeia para o formato aceito pelo repository (street/city/state/zip)
                         await saveAddress(toRepoAddress(addr) as any);
                         setAddr({ provincia: "", cidade: "", bairro: "", referencia: "" });
                       }}

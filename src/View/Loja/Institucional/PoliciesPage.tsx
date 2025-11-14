@@ -1,5 +1,6 @@
+// src/View/Loja/Institucional/PoliciesPage.tsx
 import { Navbar } from "@comp/home/Navbar";
-import { Footer } from "@comp/layout/footer";
+import { Footer } from "@comp/home/Footer";
 import { useCartStore } from "@state/cart.store";
 import { useUIStore } from "@state/ui.store";
 
@@ -20,25 +21,42 @@ export default function PoliciesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar sections={[]} active="" cartCount={cart.totalQty} wishlistCount={cart.wishlistCount}
-        searchQuery="" setSearchQuery={() => {}} menuOpen={ui.menuOpen} setMenuOpen={setMenuOpenProp} smoothScrollTo={() => {}} />
+      <Navbar
+        sections={[]} active="" cartCount={cart.totalQty} wishlistCount={cart.wishlistCount}
+        searchQuery="" setSearchQuery={() => {}} menuOpen={ui.menuOpen} setMenuOpen={setMenuOpenProp} smoothScrollTo={() => {}}
+      />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-6">
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Políticas</h1>
 
         <Section id="privacidade" title="Política de Privacidade">
-          Tratamos seus dados seguindo as melhores práticas de segurança. Usamos suas informações para
-          processar pedidos, suporte e comunicações. Você pode solicitar a remoção dos seus dados a qualquer momento.
+          Coletamos dados para processar pedidos e oferecer suporte. Não vendemos seus dados. Você pode solicitar acesso,
+          correção ou exclusão pelo e-mail privacy@mobiliarte.co.mz. Cookies essenciais são usados para sessão e carrinho.
         </Section>
 
         <Section id="devolucao" title="Política de Devolução/Troca">
-          Você pode solicitar devolução em até 7 dias corridos após o recebimento. Para trocas por defeito,
-          o prazo é de 30 dias. Produtos devem estar em perfeitas condições e com embalagem original.
+          Arrependimento em até 7 dias corridos após recebimento. Para defeito, 30 dias. Produto sem uso e com embalagem
+          original. Abra solicitação pelo e-mail pedidos@mobicasa.co.mz informando nº do pedido.
         </Section>
 
         <Section id="termos" title="Termos e Condições">
-          Ao comprar, você concorda com nossos termos de uso, prazos de entrega, preços e formas de pagamento.
-          Reservamo-nos o direito de corrigir erros de preço e descrição sem aviso prévio.
+          Preços em MZN e sujeitos a alteração. Disponibilidade vinculada ao estoque no momento da confirmação. O cliente
+          é responsável por informar morada correta. Foro da sede da empresa.
+        </Section>
+
+        <Section id="seguranca" title="Segurança">
+          Operamos com HTTPS, prevenção a ataques comuns, rate limiting de APIs e senhas com hash seguro.
+          Não armazenamos dados sensíveis de cartão. Para carteiras móveis, guardamos somente referências de transação.
+        </Section>
+
+        <Section id="frete" title="Envio e Frete">
+          Serviços: Retirar no local, Padrão (3–5 dias), Expresso (1–2 dias) e Por Zona. O valor é exibido no checkout
+          conforme a regra ativa e a região informada.
+        </Section>
+
+        <Section id="pagamentos" title="Formas de Pagamento">
+          Aceitamos M-Pesa e e-Mola. Em alguns casos, transferência bancária. Pagamentos por carteira podem levar até 24h
+          para compensação. Guarde o comprovante.
         </Section>
       </main>
 

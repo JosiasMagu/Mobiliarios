@@ -1,41 +1,72 @@
 // src/Utils/api.ts
-const RAW = import.meta.env.VITE_API_URL || "http://localhost:8080";
-export const BASE = RAW.replace(/\/+$/, "");
+export const BASE = (import.meta.env.VITE_API_URL || "http://localhost:8080").replace(/\/+$/, "");
 
-/** Lê token de qualquer uma das stores conhecidas, sem depender de imports. */
+/** Lê o token em vários formatos e chaves. */
 function readAuthToken(): string | null {
-  try {
-    const stores = [
-      "mobiliario:auth_v1", // store principal
-      "admin_auth_v1",      // admin
-      "client_auth_v1",     // cliente legado
-    ];
-    for (const k of stores) {
-      const v = localStorage.getItem(k);
-      if (!v) continue;
-      const obj = JSON.parse(v);
-      if (obj?.token) return String(obj.token);
-    }
-  } catch {}
+  const keys = [
+    "mobiliario:auth_v1",
+    "admin_auth_v1",
+    "client_auth_v1",
+    "auth_v1",
+    "auth",
+    "session",
+  ];
+  for (const k of keys) {
+    try {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      const v = JSON.parse(raw);
+
+      if (typeof v === "string" && v.startsWith("eyJ")) return v; // token puro
+      if (v?.token) return String(v.token);
+      if (v?.accessToken) return String(v.accessToken);
+      if (v?.data?.token) return String(v.data.token);
+      if (v?.auth?.token) return String(v.auth.token);
+    } catch { /* ignore */ }
+  }
   return null;
+}
+
+function clearAuthAndMaybeRedirect() {
+  try {
+    ["mobiliario:auth_v1","admin_auth_v1","client_auth_v1","auth_v1","auth","session"]
+      .forEach(k => localStorage.removeItem(k));
+  } catch {}
+  if (typeof window !== "undefined" && location.pathname.startsWith("/admin")) {
+    const back = encodeURIComponent(location.pathname + location.search + location.hash);
+    location.replace(`/admin/login?back=${back}`);
+  }
 }
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
+    if (res.status === 401) clearAuthAndMaybeRedirect();
+
     let msg = `HTTP ${res.status}`;
     try {
-      const j = await res.json();
-      msg = (j && (j.error || j.message)) || msg;
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        const j = await res.json();
+        if (Array.isArray((j as any)?.issues) && (j as any).issues.length) {
+          const errs = (j as any).issues.map((i: any) => i?.message || i?.path?.join(".")).filter(Boolean);
+          msg = `${String((j as any).error || (j as any).message || msg)}: ${errs.join("; ")}`;
+        } else {
+          msg = String((j as any)?.error || (j as any)?.message || msg);
+        }
+      } else {
+        msg = await res.text();
+      }
     } catch {}
     throw new Error(msg);
   }
-  // alguns endpoints 204 não têm body
   if (res.status === 204) return undefined as unknown as T;
-  return res.json() as Promise<T>;
+  const ct = res.headers.get("content-type") || "";
+  return ct.includes("application/json")
+    ? ((await res.json()) as T)
+    : ((await res.text()) as unknown as T);
 }
 
 function abs(path: string): string {
-  // garante “/api/..” com uma única barra
   const p = path.startsWith("/") ? path : `/${path}`;
   return `${BASE}${p}`;
 }

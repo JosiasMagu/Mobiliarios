@@ -1,5 +1,6 @@
+// src/View/Loja/Institucional/AboutPage.tsx
 import { Navbar } from "@comp/home/Navbar";
-import { Footer } from "@comp/layout/footer";
+import { Footer } from "@comp/home/Footer"; 
 import { useCartStore } from "@state/cart.store";
 import { useUIStore } from "@state/ui.store";
 
@@ -19,10 +20,13 @@ export default function AboutPage() {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Sobre Nós</h1>
         <div className="mt-6 rounded-xl border border-slate-200/40 bg-white p-6 leading-relaxed text-slate-700">
-          Na Mobiliário, acreditamos que cada ambiente deve refletir seu estilo.
-          Desde 2015, unimos qualidade, conforto e durabilidade em peças selecionadas.
-          Nossa equipa acompanha do primeiro contacto ao pós-venda, com consultoria e suporte.
-          Explore o catálogo e descubra como transformar o seu espaço.
+          Na Mobiliário, acreditamos que cada ambiente deve refletir seu estilo. Desde 2015...
+          <div className="mt-4 text-sm text-slate-600">
+            <div><strong>Endereço:</strong> Maputo, Moçambique</div>
+            <div><strong>Telefone:</strong> +258 84 000 0000</div>
+            <div><strong>E-mail:</strong> suporte@mobicasa.co.mz</div>
+            <div><strong>NUIT:</strong> 123456789</div>
+          </div>
         </div>
       </main>
 

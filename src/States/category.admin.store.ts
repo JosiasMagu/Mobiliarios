@@ -5,6 +5,7 @@ import {
   upsertCategory,
   deleteCategory,
   reorderCategories,
+  slugify,
 } from "@repo/category.repository";
 
 type UpsertInput = Omit<Category, "createdAt" | "updatedAt" | "slug"> & {
@@ -39,7 +40,8 @@ export const useAdminCategories = create<State>((set, get) => ({
   async createOrUpdate(input) {
     set({ loading: true, error: undefined });
     try {
-      await upsertCategory(input as any);
+      const s = input.slug && input.slug.trim().length ? input.slug : slugify(input.name);
+      await upsertCategory({ ...(input as any), slug: s });
       await get().fetch();
     } catch (e: any) {
       set({ loading: false, error: e?.message || "Erro" });

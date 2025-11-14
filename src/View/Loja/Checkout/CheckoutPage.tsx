@@ -6,8 +6,8 @@ import { listShippingRules, estimateZoneCost, type Carrier } from "@/Repository/
 import { useCartStore } from "@state/cart.store";
 import { createOrder, type PaymentKind, type ShippingMethod } from "@repo/order.repository";
 
-// Regex local para telefone MZ
 const MZ_PHONE_REGEX = /^(?:82|83|84|85|86|87)\d{7}$/;
+const API = (import.meta.env.VITE_API_URL || "http://localhost:8080").replace(/\/+$/, "");
 
 type Address = {
   nome: string;
@@ -21,9 +21,8 @@ type Address = {
 export default function CheckoutPage() {
   const navigate = useNavigate();
 
-  // Carrinho
   const cart = useCartStore();
-  const items = cart.items.map(i => ({
+  const items = cart.items.map((i) => ({
     productId: i.productId,
     name: i.name,
     qty: i.qty,
@@ -31,7 +30,6 @@ export default function CheckoutPage() {
     image: i.image,
   }));
 
-  // Endereço
   const [addr, setAddr] = useState<Address>({
     nome: "",
     telefone: "",
@@ -40,16 +38,15 @@ export default function CheckoutPage() {
     bairro: "",
     referencia: "",
   });
-  const updateAddr = <K extends keyof Address>(k: K, v: Address[K]) =>
-    setAddr(p => ({ ...p, [k]: v }));
+  const updateAddr = <K extends keyof Address>(k: K, v: Address[K]) => setAddr((p) => ({ ...p, [k]: v }));
 
-  // Pagamento e envio (carregamento assíncrono)
   const [payments, setPayments] = useState<PaymentMethod[]>([]);
   const [shippingRules, setShippingRules] = useState<Carrier[]>([]);
   const [paymentId, setPaymentId] = useState<string>("");
   const [shippingId, setShippingId] = useState<string>("");
   const [zoneCost, setZoneCost] = useState<number | undefined>();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -57,7 +54,9 @@ export default function CheckoutPage() {
         const [pms, ships] = await Promise.all([listPaymentMethods(), listShippingRules()]);
         setPayments(pms);
         setShippingRules(ships);
-        if (pms.length) setPaymentId(String(pms[0].id));
+
+        const firstPm = (pms.find(p => p.type === "mpesa") ?? pms[0]);
+        if (firstPm) setPaymentId(String(firstPm.id));
         if (ships.length) setShippingId(String(ships[0].id));
       } catch {
         // silencioso
@@ -65,17 +64,17 @@ export default function CheckoutPage() {
     })();
   }, []);
 
-  const payment = useMemo(
-    () => payments.find(p => String(p.id) === paymentId),
-    [payments, paymentId]
-  );
+  const visiblePayments = useMemo(() => payments.filter(p => p.type === "mpesa"), [payments]);
 
+  const payment = useMemo(
+    () => visiblePayments.find((p) => String(p.id) === paymentId),
+    [visiblePayments, paymentId]
+  );
   const shipping = useMemo(
-    () => shippingRules.find(s => String(s.id) === shippingId),
+    () => shippingRules.find((s) => String(s.id) === shippingId),
     [shippingRules, shippingId]
   );
 
-  // Totais
   const subtotal = useMemo(() => items.reduce((s, i) => s + i.qty * i.price, 0), [items]);
 
   const shippingCost = useMemo(() => {
@@ -87,7 +86,6 @@ export default function CheckoutPage() {
 
   const total = subtotal + shippingCost;
 
-  // Navbar
   const [searchQuery, setSearchQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const sections: ReadonlyArray<{ id: string; label: string }> = [];
@@ -99,13 +97,12 @@ export default function CheckoutPage() {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  // Validação
   function validate() {
     const e: Record<string, string> = {};
     if (items.length === 0) e.cart = "Carrinho vazio.";
     if (!addr.nome) e.nome = "Nome obrigatório.";
     if (!addr.telefone) e.telefone = "Telefone obrigatório.";
-    else if (!MZ_PHONE_REGEX.test(addr.telefone)) e.telefone = "Telefone inválido.";
+    else if (!MZ_PHONE_REGEX.test(addr.telefone.replace(/\D/g, ""))) e.telefone = "Telefone inválido.";
     if ((shipping?.service ?? "standard") !== "pickup") {
       if (!addr.provincia) e.provincia = "Província obrigatória.";
       if (!addr.cidade) e.cidade = "Cidade obrigatória.";
@@ -116,20 +113,17 @@ export default function CheckoutPage() {
     return Object.keys(e).length === 0;
   }
 
-  // Cálculo de custo por zona quando troca envio ou endereço
   function recalcZoneCost(sel?: Carrier) {
     const rule = sel ?? shipping;
     if (rule?.service === "zone" && addr.provincia) {
-      // peso estimado simples
       setZoneCost(estimateZoneCost(rule, 5));
     } else {
       setZoneCost(undefined);
     }
   }
-
   function onChangeShipping(id: string) {
     setShippingId(id);
-    const sel = shippingRules.find(r => String(r.id) === id);
+    const sel = shippingRules.find((r) => String(r.id) === id);
     recalcZoneCost(sel);
   }
   function onAddressBlur() {
@@ -137,24 +131,59 @@ export default function CheckoutPage() {
   }
 
   async function placeOrder() {
-    if (!validate()) return;
+    if (!validate() || submitting) return;
 
     try {
+      setSubmitting(true);
+
+      // 1) cria a ordem no backend (inclui nome e telefone)
       const order = await createOrder({
         items,
         address: {
+          nome: addr.nome,
+          telefone: addr.telefone,
           provincia: addr.provincia,
           cidade: addr.cidade,
           bairro: addr.bairro,
           referencia: addr.referencia,
         },
         shippingMethod: (shipping?.service ?? "standard") as ShippingMethod,
-        paymentMethod: (payment?.type ?? "emola") as PaymentKind,
+        paymentMethod: (payment?.type ?? "mpesa") as PaymentKind,
       });
+
+      // 2) se for MPesa, inicia C2B
+      if ((payment?.type ?? "mpesa") === "mpesa") {
+        const phone9 = addr.telefone.replace(/\D/g, "").slice(-9);
+        const reference = `Pedido${order.id}`.replace(/\s+/g, "");
+
+        await fetch(`${API}/api/payments/e2/c2b`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: total,
+            phone: phone9,
+            reference,
+          }),
+        }).then(async (r) => {
+          if (!r.ok) {
+            let msg = "Falha ao iniciar pagamento";
+            try {
+              const j = await r.json();
+              msg = j?.error || msg;
+            } catch {}
+            throw new Error(msg);
+          }
+          return r.json();
+        });
+      }
+
+      // 3) limpar carrinho e seguir
       cart.clear?.();
       navigate(`/confirm/${order.id}`, { replace: true });
     } catch (e: any) {
-      setErrors(prev => ({ ...prev, submit: e?.message || "Falha ao criar pedido" }));
+      setErrors((prev) => ({ ...prev, submit: e?.message || "Falha ao criar pedido" }));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -193,13 +222,12 @@ export default function CheckoutPage() {
       <div className="min-h-[70vh] bg-slate-50 py-8 px-3 md:px-8 font-[Inter]">
         <div className="mx-auto max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            {/* 1. Dados */}
             <section className="bg-white shadow-sm rounded-xl p-6 border border-slate-200">
               <h2 className="text-lg font-semibold mb-4 text-slate-700">1. Dados do cliente</h2>
               <div className="grid md:grid-cols-2 gap-4">
                 <label className="flex flex-col text-sm">
                   <span>Nome</span>
-                  <input className={inputClass} value={addr.nome} onChange={e => updateAddr("nome", e.target.value)} />
+                  <input className={inputClass} value={addr.nome} onChange={(e) => updateAddr("nome", e.target.value)} />
                   {errors.nome && <span className="text-red-600 text-xs mt-1">{errors.nome}</span>}
                 </label>
                 <label className="flex flex-col text-sm">
@@ -208,7 +236,7 @@ export default function CheckoutPage() {
                     className={inputClass}
                     placeholder="82/83/84/85/86/87 + 7 dígitos"
                     value={addr.telefone}
-                    onChange={e => updateAddr("telefone", e.target.value)}
+                    onChange={(e) => updateAddr("telefone", e.target.value)}
                   />
                   {errors.telefone && <span className="text-red-600 text-xs mt-1">{errors.telefone}</span>}
                 </label>
@@ -216,33 +244,31 @@ export default function CheckoutPage() {
               {errors.cart && <p className="text-red-600 text-sm mt-2">{errors.cart}</p>}
             </section>
 
-            {/* 2. Endereço */}
             <section className="bg-white shadow-sm rounded-xl p-6 border border-slate-200">
               <h2 className="text-lg font-semibold mb-4 text-slate-700">2. Endereço de entrega</h2>
               <div className="grid md:grid-cols-2 gap-4" onBlur={onAddressBlur}>
                 <label className="flex flex-col text-sm">
                   <span>Província</span>
-                  <input className={inputClass} value={addr.provincia} onChange={e => updateAddr("provincia", e.target.value)} />
+                  <input className={inputClass} value={addr.provincia} onChange={(e) => updateAddr("provincia", e.target.value)} />
                   {errors.provincia && <span className="text-red-600 text-xs mt-1">{errors.provincia}</span>}
                 </label>
                 <label className="flex flex-col text-sm">
                   <span>Cidade</span>
-                  <input className={inputClass} value={addr.cidade} onChange={e => updateAddr("cidade", e.target.value)} />
+                  <input className={inputClass} value={addr.cidade} onChange={(e) => updateAddr("cidade", e.target.value)} />
                   {errors.cidade && <span className="text-red-600 text-xs mt-1">{errors.cidade}</span>}
                 </label>
                 <label className="flex flex-col text-sm">
                   <span>Bairro</span>
-                  <input className={inputClass} value={addr.bairro} onChange={e => updateAddr("bairro", e.target.value)} />
+                  <input className={inputClass} value={addr.bairro} onChange={(e) => updateAddr("bairro", e.target.value)} />
                   {errors.bairro && <span className="text-red-600 text-xs mt-1">{errors.bairro}</span>}
                 </label>
                 <label className="flex flex-col text-sm">
                   <span>Ponto de referência (opcional)</span>
-                  <input className={inputClass} value={addr.referencia ?? ""} onChange={e => updateAddr("referencia", e.target.value)} />
+                  <input className={inputClass} value={addr.referencia ?? ""} onChange={(e) => updateAddr("referencia", e.target.value)} />
                 </label>
               </div>
             </section>
 
-            {/* 3. Envio */}
             <section className="bg-white shadow-sm rounded-xl p-6 border border-slate-200">
               <h2 className="text-lg font-semibold mb-4 text-slate-700">3. Método de envio</h2>
               <div className="flex flex-wrap gap-3">
@@ -273,11 +299,10 @@ export default function CheckoutPage() {
               )}
             </section>
 
-            {/* 4. Pagamento */}
             <section className="bg-white shadow-sm rounded-xl p-6 border border-slate-200">
               <h2 className="text-lg font-semibold mb-4 text-slate-700">4. Pagamento</h2>
               <div className="grid md:grid-cols-3 gap-3">
-                {payments.map(p => (
+                {visiblePayments.map((p) => (
                   <label key={p.id} className={chip(paymentId === String(p.id))}>
                     <input
                       type="radio"
@@ -288,26 +313,17 @@ export default function CheckoutPage() {
                     />
                     <span className="text-sm font-medium">
                       {p.type === "mpesa" && "M-Pesa"}
-                      {p.type === "emola" && "eMola"}
-                      {p.type === "bank" && "Conta bancária"}
                     </span>
                   </label>
                 ))}
               </div>
 
-              {(payment?.type === "mpesa" || payment?.type === "emola") && (
+              {(payment?.type === "mpesa") && (
                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mt-3 text-sm text-slate-700">
-                  <div>Telefone para pagamento: <strong>{(payment as any).walletPhone ?? "—"}</strong></div>
+                  <div>
+                    Telefone para pagamento: <strong>{(payment as any).walletPhone ?? "—"}</strong>
+                  </div>
                   {(payment as any)?.instructions && <div className="mt-1">{(payment as any).instructions}</div>}
-                </div>
-              )}
-              {payment?.type === "bank" && (
-                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mt-3 text-sm text-slate-700 space-y-1">
-                  <div>Banco: <strong>{(payment as any).bankName ?? "—"}</strong></div>
-                  <div>Titular: <strong>{(payment as any).accountHolder ?? "—"}</strong></div>
-                  <div>Nº da conta: <strong>{(payment as any).accountNumber ?? "—"}</strong></div>
-                  {(payment as any).iban && <div>NIB/IBAN: <strong>{(payment as any).iban}</strong></div>}
-                  {(payment as any)?.instructions && <div className="pt-1">{(payment as any).instructions}</div>}
                 </div>
               )}
               {errors.payment && <p className="text-red-600 text-sm mt-2">{errors.payment}</p>}
@@ -315,11 +331,10 @@ export default function CheckoutPage() {
             </section>
           </div>
 
-          {/* Resumo */}
           <aside className="h-fit bg-white shadow-sm rounded-xl p-6 border border-slate-200">
             <h2 className="text-lg font-semibold mb-4 text-slate-700">Resumo do pedido</h2>
             <ul className="divide-y divide-slate-100">
-              {items.map(it => (
+              {items.map((it) => (
                 <li key={`${it.productId}`} className="flex items-center justify-between py-3">
                   <div className="flex items-center gap-3">
                     <img
@@ -338,18 +353,25 @@ export default function CheckoutPage() {
               ))}
             </ul>
             <div className="mt-4 border-t pt-3 text-sm text-slate-700 space-y-1">
-              <div className="flex justify-between"><span>Subtotal</span><span>{subtotal} MZN</span></div>
-              <div className="flex justify-between"><span>Envio</span><span>{shippingCost} MZN</span></div>
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span>{subtotal} MZN</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Envio</span>
+                <span>{shippingCost} MZN</span>
+              </div>
               <div className="flex justify-between font-semibold text-slate-900">
-                <span>Total</span><span>{total} MZN</span>
+                <span>Total</span>
+                <span>{total} MZN</span>
               </div>
             </div>
             <button
               onClick={placeOrder}
-              disabled={items.length === 0}
+              disabled={items.length === 0 || submitting}
               className="mt-6 w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition"
             >
-              Confirmar pedido
+              {submitting ? "A processar..." : "Confirmar pedido"}
             </button>
           </aside>
         </div>

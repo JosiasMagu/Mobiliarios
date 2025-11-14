@@ -1,5 +1,6 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Home from "@view/Loja/Home/homePage";
+import SignupPage from "@/View/Loja/Auth/SignupPage";
 import CategoryPage from "@view/Loja/Category/CategoryPage";
 import ProductPage from "@view/Loja/Product/ProductPage";
 import CartPage from "@view/Loja/Cart/CartPage";
@@ -16,6 +17,7 @@ import NotFound from "@view/NotFound";
 import RequireAuth from "@routes/requireAuth.routes";
 import { AppErrorBoundary } from "@/AppErrorBoundary";
 import { adminRoutes } from "@routes/admin.routes";
+import PoliciesPage from "@view/Loja/Institucional/PoliciesPage";
 
 const router = createBrowserRouter([
   { path: "/", element: <Home /> },
@@ -26,6 +28,7 @@ const router = createBrowserRouter([
   { path: "/confirm/:id", element: <ConfirmationPage /> },
   { path: "/wishlist", element: <WishlistPage /> },
   { path: "/login", element: <LoginPage /> },
+  { path: "/signup", element: <SignupPage /> },
   {
     path: "/account",
     element: <RequireAuth />,
@@ -39,6 +42,7 @@ const router = createBrowserRouter([
   { path: "/sobre", element: <AboutPage /> },
   { path: "/contato", element: <ContactPage /> },
   { path: "/faq", element: <FAQPage /> },
+  { path: "/politicas", element: <PoliciesPage /> },
   ...adminRoutes,
   { path: "*", element: <NotFound /> },
 ]);

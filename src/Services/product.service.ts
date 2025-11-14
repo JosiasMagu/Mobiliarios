@@ -55,11 +55,35 @@ void seedIfEmpty();
 // ---------------- Helper HTTP ----------------
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, init);
+
   if (!res.ok) {
+    // tenta extrair mensagem significativa
     const txt = await res.text().catch(() => "");
-    throw new Error(txt || `HTTP ${res.status}`);
+    try {
+      const j = JSON.parse(txt || "{}");
+      const msg =
+        j?.error ||
+        j?.message ||
+        (Array.isArray(j?.issues) && j.issues.length
+          ? j.issues.map((i: any) => i?.message || i?.path?.join(".")).filter(Boolean).join("; ")
+          : "") ||
+        txt ||
+        `HTTP ${res.status}`;
+      throw new Error(msg);
+    } catch {
+      throw new Error(txt || `HTTP ${res.status}`);
+    }
   }
-  return res.json() as Promise<T>;
+
+  // 204 No Content
+  if (res.status === 204) return undefined as unknown as T;
+
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) {
+    return (await res.json()) as T;
+  }
+  const txt = await res.text();
+  return txt as unknown as T;
 }
 
 // ================= Loja (read-only) =================
@@ -173,7 +197,7 @@ export const productService = {
     const now = new Date().toISOString();
     list[idx] = { ...(list[idx] as any), ...patch, updatedAt: now };
     saveMem(list);
-    return list[idx];
+    return list[idx] as Product;
   },
 
   async remove(id: number): Promise<void> {

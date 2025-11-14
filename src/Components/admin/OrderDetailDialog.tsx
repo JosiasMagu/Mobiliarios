@@ -1,4 +1,5 @@
-import type { FC } from "react";
+import type { FC, ChangeEvent, KeyboardEvent } from "react";
+import { useState } from "react";
 import { X } from "lucide-react";
 import { currency } from "@utils/currency";
 import type {
@@ -47,19 +48,52 @@ function addrLine2(a: OrderAddress | undefined): string {
 }
 
 const OrderDetailDialog: FC<Props> = ({ open, order, onClose, onUpdateStatus, onAddNote }) => {
+  // Hooks sempre no topo, mesma ordem em todos os renders
+  const [note, setNote] = useState("");
+  const [updating, setUpdating] = useState<false | OrderStatus>(false);
+  const [addingNote, setAddingNote] = useState(false);
+
+  // Se não estiver aberto ou sem pedido, não renderiza UI
   if (!open || !order) return null;
 
-  const o: any = order; // acesso a campos opcionais não previstos no tipo estrito
+  const o: any = order;
   const pm = o.payment?.method ?? "card";
-  const history: Array<{ status: string; note?: string; at: string | number | Date }> = o.history ?? [];
+  const pmText = payLabel[String(pm)] ?? String(pm).toUpperCase();
+  const history: Array<{ status: string; note?: string; at: string | number | Date }> = Array.isArray(o.history) ? o.history : [];
+
+  const onChangeStatus = async (e: ChangeEvent<HTMLSelectElement>) => {
+    const newStatus = e.target.value as OrderStatus;
+    try {
+      setUpdating(newStatus);
+      await Promise.resolve(onUpdateStatus(newStatus));
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const submitNote = async () => {
+    const v = note.trim();
+    if (!v) return;
+    try {
+      setAddingNote(true);
+      await Promise.resolve(onAddNote(v));
+      setNote("");
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
+  const keyUp = (ev: KeyboardEvent<HTMLInputElement>) => {
+    if (ev.key === "Enter") submitNote();
+  };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/20 p-3">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/20 p-3" role="dialog" aria-modal="true">
       <div className="w-full max-w-4xl max-h-[90vh] rounded-2xl bg-white shadow-lg ring-1 ring-slate-200/60 flex flex-col overflow-hidden">
         {/* header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200/60">
           <div className="font-bold">Pedido {o.number || `#${o.id}`}</div>
-          <button onClick={onClose} className="rounded-md p-1 hover:bg-slate-50" title="Fechar">
+          <button onClick={onClose} className="rounded-md p-1 hover:bg-slate-50" title="Fechar" aria-label="Fechar">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -82,7 +116,7 @@ const OrderDetailDialog: FC<Props> = ({ open, order, onClose, onUpdateStatus, on
             </div>
             <div className="rounded-lg ring-1 ring-slate-200 p-3">
               <div className="text-xs text-slate-500">Pagamento</div>
-              <div className="font-medium">{payLabel[String(pm)] ?? String(pm).toUpperCase()}</div>
+              <div className="font-medium">{pmText}</div>
               <div className="text-xs text-slate-500">Criado em {new Date(o.createdAt).toLocaleString()}</div>
             </div>
           </div>
@@ -121,29 +155,32 @@ const OrderDetailDialog: FC<Props> = ({ open, order, onClose, onUpdateStatus, on
               <div className="text-sm font-medium mb-2">Atualizar Status</div>
               <select
                 defaultValue={o.status}
-                onChange={(e) => onUpdateStatus(e.target.value as OrderStatus)}
-                className="w-full rounded-md ring-1 ring-slate-200 bg-white px-3 py-2 outline-none"
+                onChange={onChangeStatus}
+                disabled={!!updating}
+                className="w-full rounded-md ring-1 ring-slate-200 bg-white px-3 py-2 outline-none disabled:opacity-60"
+                aria-label="Atualizar status do pedido"
               >
                 {statuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
+              {updating && <div className="mt-2 text-xs text-slate-500">A atualizar…</div>}
             </div>
             <div className="md:col-span-2 rounded-lg ring-1 ring-slate-200 p-3">
               <div className="text-sm font-medium mb-2">Adicionar nota</div>
               <div className="flex gap-2">
                 <input
-                  id="order-note-input"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  onKeyUp={keyUp}
                   className="flex-1 rounded-md ring-1 ring-slate-200 px-3 py-2 outline-none"
                   placeholder="Observação do pedido"
+                  aria-label="Observação do pedido"
                 />
                 <button
-                  className="rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2"
-                  onClick={() => {
-                    const el = document.getElementById("order-note-input") as HTMLInputElement | null;
-                    const v = el?.value?.trim(); if (!v) return;
-                    onAddNote(v); if (el) el.value = "";
-                  }}
+                  className="rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 disabled:opacity-60"
+                  onClick={submitNote}
+                  disabled={addingNote}
                 >
-                  Guardar
+                  {addingNote ? "A guardar…" : "Guardar"}
                 </button>
               </div>
             </div>
@@ -153,7 +190,7 @@ const OrderDetailDialog: FC<Props> = ({ open, order, onClose, onUpdateStatus, on
           <div className="rounded-lg ring-1 ring-slate-200 p-3">
             <div className="text-sm font-medium mb-2">Histórico</div>
             <ul className="text-sm space-y-1">
-              {history.slice().reverse().map((h: {status: string; note?: string; at: any}, i: number) => (
+              {history.slice().reverse().map((h, i) => (
                 <li key={i} className="flex items-center justify-between">
                   <span>
                     <span className="font-medium">

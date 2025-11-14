@@ -7,7 +7,11 @@ export default function CustomersPage() {
   const store = useAdminCustomers();
   const [q, setQ] = useState("");
 
-  useEffect(() => { store.fetch(); }, []);
+  useEffect(() => {
+    // carrega apenas uma vez
+    store.fetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -15,8 +19,8 @@ export default function CustomersPage() {
     return store.items.filter((r) => {
       const p = r.profile;
       return (
-        p.name.toLowerCase().includes(s) ||
-        p.email.toLowerCase().includes(s)
+        (p.name || "").toLowerCase().includes(s) ||
+        (p.email || "").toLowerCase().includes(s)
       );
     });
   }, [store.items, q]);
