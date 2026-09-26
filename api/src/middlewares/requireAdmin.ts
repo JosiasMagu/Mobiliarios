@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { db } from "../lib/db";
 import { getJwtSecret } from "../lib/jwt";
 
-type JwtPayload = { id: number; email?: string; role?: string; iat?: number; exp?: number };
+type JwtPayload = { id?: number | string; sub?: number | string; userId?: number | string; email?: string; role?: string; iat?: number; exp?: number };
 
 const JWT_SECRET = getJwtSecret();
 
@@ -17,9 +17,10 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     if (!token) return res.status(401).json({ error: "unauthorized" });
 
     const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
-    if (!decoded?.id) return res.status(401).json({ error: "unauthorized" });
+    const rawId = decoded?.sub ?? decoded?.id ?? decoded?.userId;
+    if (rawId === undefined || rawId === null) return res.status(401).json({ error: "unauthorized" });
 
-    const user = await db.user.findUnique({ where: { id: Number(decoded.id) } });
+    const user = await db.user.findUnique({ where: { id: Number(rawId) } });
     const role = String(user?.role || "").toUpperCase();
 
     if (!user || !["ADMIN", "GERENTE"].includes(role)) {

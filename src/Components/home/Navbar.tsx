@@ -44,18 +44,13 @@ export function Navbar({
         <div className="flex h-16 items-center justify-between">
           {/* Brand: usa imagem em /public/logo/* com fallback */}
           <Link to="/" className="flex items-center gap-3 py-3">
-            <picture className="inline-block">
-              {/* se existir .svg, o browser usa; senão cai no png/webp */}
-              <source srcSet="public/logo.jpeg" type="image/svg+xml" />
-              <source srcSet="public/logo.jpeg" type="image/webp" />
-              <img
-                src="public/logo.jpeg"
-                alt="Mobiliário"
-                className="h-13 w-15 rounded-md"
-                loading="eager"
-                decoding="async"
-              />
-            </picture>
+            <img
+              src="/logo.jpeg"
+              alt="Mobiliário"
+              className="h-11 w-11 rounded-md object-cover"
+              loading="eager"
+              decoding="async"
+            />
             <div className="text-left">
               <div className="text-lg font-extrabold leading-none tracking-tight">Mobiliário</div>
               <div className="text-[10px] text-slate-500 -mt-0.5">Casa & Escritório</div>
